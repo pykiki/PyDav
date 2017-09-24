@@ -1,0 +1,17 @@
+# ajouter la verif de la dependence python webdavclient sinon crash.
+# verifier la compat python 2/3
+
+# finir les func upload et download
+# verifier si les fichier existent avant de recup en local et de upload en remote
+  # fair l'upload, ajouter la possibilité de dir + verifier les taille de fichier pour l'upload + presence fichier/repertoire
+  # pour les dir, verifier le contnu ou un md5 ?
+
+# improve createdir, delete, duplicate, move functions
+
+# documenter les fonction et la classe
+
+# voir pour parralélliser ?
+
+# faire un module de syncro bi-dir ...
+
+# A valider aussi sous arm ...
