@@ -55,7 +55,7 @@ curScriptDir = fpath.dirname(fpath.abspath(__file__))
 #parentScriptDir = fpath.dirname(fpath.dirname(fpath.abspath(__file__)))
 curScriptName = fpath.splitext(fpath.basename(__file__))[0]
 
-class pywebdav():
+class core():
   '''
   Main class to instanciate
   '''
@@ -67,7 +67,7 @@ class pywebdav():
     passwd,
     root,
     logtype='syslog',
-    logfile=None,
+    logfile='',
     verbosity=False
     ):
     '''
@@ -76,10 +76,35 @@ class pywebdav():
     :type xxx: Boolean.
     '''
 
-    self.__verbose = verbosity
-    self.__host = host
-    self.__login = login
     self.__error = {'code':0, 'reason':''}
+
+    if logtype not in ['console','file','syslog']:
+      self.sendlog(msg="Log destination not set or incorrect, logging to syslog", dst='console', level='warn')
+      self.__logtype = 'syslog'
+    else:
+      self.__logtype = logtype
+
+    if self.__logtype == 'file' and logfile == '':
+      self.__logtype = 'syslog'
+      self.sendlog(msg="Log destination file not set, logging to syslog", dst='console', level='warn')
+    else:
+      self.__logfile = logfile
+
+    self.__verbose = verbosity
+    if host != "" and host is not None:
+      self.__host = host
+    else:
+      self.sendlog(msg="Host cannot be empty.", dst=self.__logtype, level='warn')
+      self.__error = {'code':1, 'reason':'Host cannot be empty.'}
+
+    if login != "" and login is not None:
+      self.__login = login
+    else:
+      self.sendlog(msg="Login cannot be empty.", dst=self.__logtype, level='warn')
+      self.__error = {'code':1, 'reason':'Login cannot be empty.'}
+
+    if passwd == "" or passwd is None:
+      self.sendlog(msg="Empty password set.", dst=self.__logtype, level='warn')
 
     self.__options = {
       'webdav_hostname': host,
@@ -99,17 +124,8 @@ class pywebdav():
     # calling signal handler
     signal.signal(signal.SIGINT, self.sigint_handler)
 
-    if logtype not in ['console','file','syslog']:
-      self.sendlog(msg="Log destination not set or incorrect, logging to syslog", dst='console', level='warn')
-      self.__logtype = 'syslog'
-    else:
-      self.__logtype = logtype
-
-    if self.__logtype == 'file' and logfile is None:
-      self.sendlog(msg="Log destination file not set, logging to syslog", dst='console', level='warn')
-      self.__logtype = 'syslog'
-    else:
-      self.__logfile = logfile
+  def __del__(self):
+    pass
 
   def sigint_handler(self, signum, frame):
     '''
@@ -152,6 +168,9 @@ class pywebdav():
   def file_size(self, fname):
     '''
     '''
+    if self.__error['code'] == 1:
+      return(self.__error)
+
     statinfo = fstat(fname)
     return(statinfo.st_size)
 
@@ -160,6 +179,9 @@ class pywebdav():
     Allow to send log easily to a stream of your choice
     Use: your message, level of the message (info, warn, debug etc..), destination stream (console, file or syslog)
     '''
+
+    if self.__error['code'] == 1:
+      return(self.__error)
 
     if not dst:
       dst = self.__logtype
@@ -215,14 +237,17 @@ class pywebdav():
     if self.__error['code'] == 1:
       return(self.__error)
 
+    self.__client = wc.Client(self.__options)
     try:
-      self.__client = wc.Client(self.__options)
-    except wc.WebDavException as exception:
+      self.__client.list()
+    except:
+      errmsg = "Unable to connect to server: {0}.".format(self.__host)
       if self.__logtype == 'file': 
-        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=exception)
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
       else:
-        self.sendlog(msg=exception, dst=self.__logtype, level='error')
-      self.__error = {'code':1, 'reason':'Unable to connect'}
+        self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+      self.__error = {'code':1, 'reason':errmsg}
+      return(self.__error)
 
     if self.__logtype == 'file':
       self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg="Connected to {0} as {1}".format(self.__host, self.__login))
@@ -254,7 +279,7 @@ class pywebdav():
       if self.__logtype == 'file': 
         self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
       else:
-        self.sendlog(dst=self.__logtype, level="errot", msg=exception)
+        self.sendlog(dst=self.__logtype, level="error", msg=exception)
 
       self.__error = {'code':1,'reason':"Unable to find {0}".format(target)}
 
@@ -295,10 +320,19 @@ class pywebdav():
     fileinfo = self.getinfo(remote)
     rfilesize = fileinfo['size']
 
-    self.__client.download(remote_path=remote, local_path=local, progress=self.progress)
-    # print console carriage return after progress bar
-    #self.sendlog(dst='console', msg='')
-    print('')
+    try:
+      self.__client.download(remote_path=remote, local_path=local, progress=self.progress)
+      # print console carriage return after progress bar
+      #self.sendlog(dst='console', msg='')
+      print('')
+    except wc.WebDavException as exception:
+      if self.__logtype == 'file': 
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
+      else:
+        self.sendlog(dst=self.__logtype, level="error", msg=exception)
+
+      self.__error = {'code':1,'reason':exception}
+      return(self.__error)
 
     lfilesize = self.file_size(local)
 
@@ -316,7 +350,8 @@ class pywebdav():
         self.sendlog(dst=self.__logtype, level="warn", msg='Download failed: partially retrieved.')
 
       fremove(location)
-      self.__error = {'code':1,'reason':"Unable to find {0}".format(target)}
+      #self.__error = {'code':1,'reason':"Unable to find {0}".format(target)}
+      self.__error = {'code':1,'reason':"Download failed: partially retrieved."}
 
     return(self.__error)
 
@@ -327,10 +362,19 @@ class pywebdav():
     if self.__error['code'] == 1:
       return(self.__error)
 
-    self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
-    # print console carriage return after progress bar
-    #self.sendlog(dst='console', msg='')
-    print('')
+    try:
+      self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
+      # print console carriage return after progress bar
+      #self.sendlog(dst='console', msg='')
+      print('')
+    except wc.WebDavException as exception:
+      if self.__logtype == 'file': 
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
+      else:
+        self.sendlog(dst=self.__logtype, level="error", msg=exception)
+      self.__error = {'code':1,'reason':exception}
+      return(self.__error)
+
     if not self.__client.check(remote):
       if self.__logtype == 'file': 
         self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg="Unable to upload {0}".format(local))
@@ -346,25 +390,39 @@ class pywebdav():
     '''
      Create directory
     '''
+    if self.__error['code'] == 1:
+      return(self.__error)
+
     self.__client.mkdir(target)
 
   def delete(self, target):
     '''
      Delete resource
     '''
+    if self.__error['code'] == 1:
+      return(self.__error)
+
     self.__client.clean(target)
 
   def duplicate(self, target, twin):
     '''
      Copy resource
     '''
+    if self.__error['code'] == 1:
+      return(self.__error)
+
     self.__client.copy(remote_path_from=target, remote_path_to=twin)
 
   def move(self, target, new):
     '''
      Move resource
     '''
+    if self.__error['code'] == 1:
+      return(self.__error)
+
     self.__client.move(remote_path_from=target, remote_path_to=new)
+
+  #pkidbDict = property(read_pkidb, None, None, "Get pki db in a dict")
 
 if __name__ == "__main__":
   """
@@ -372,9 +430,9 @@ if __name__ == "__main__":
   """
 
   # Webdav global informations part
-  rhost = ""
-  rlogin = ""
-  rpass = ""
+  rhost = "localhost"
+  rlogin = "toto"
+  rpass = "123456"
   webdav_root = ""
   
   # Webdav target path
@@ -388,18 +446,18 @@ if __name__ == "__main__":
   logfilepath = '/var/log/{0}.log'.format(curScriptName)
 
   # init webdav
-  pydav = pywebdav(host=rhost, login=rlogin, passwd=rpass, root=webdav_root, logtype=logdst, logfile=logfilepath, verbosity=False)
+  pydav = core(host=rhost, login=rlogin, passwd=rpass, root=webdav_root, logtype=logdst, logfile=logfilepath, verbosity=False)
 
   # connection to webdav server
   connected = pydav.connect()
   if connected['code'] == 1:
-   print(connected['reason'])
+   del(pydav)
    exit(connected['code'])
 
-  # cheking target path exists
+  # checking target path exists
   res = pydav.check(share)
   if res['code'] == 1:
-   print(res['reason'])
+   del(pydav)
    exit(res['code'])
 
   ############################
@@ -438,7 +496,7 @@ if __name__ == "__main__":
       pydav.sendlog(msg='Downloading {0}'.format(rfilename))
       res = pydav.download(rfileloc, fileloc)
       if res['code'] == 1:
-       print(res['reason'])
+       del(pydav)
        exit(res['code'])
   else:
     pydav.sendlog(msg="No remote files or directories found", level='warn')
@@ -454,7 +512,7 @@ if __name__ == "__main__":
   pydav.sendlog(msg='Uploading {0}'.format(lfile))
   res = pydav.upload(lfile, rfile)
   if res['code'] == 1:
-   print(res['reason'])
+   del(pydav)
    exit(res['code'])
 
   ###################

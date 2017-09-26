@@ -17,6 +17,6 @@ wp-content/plugins/hello.php
 /sitemap.xml.gz
 
 /miscs/
-/miscs/*
+/PyDav.egg-info/
 /build/
 /dist/
