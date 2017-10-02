@@ -2,10 +2,24 @@
 # -*- coding: UTF-8 -*-
 
 import sys
-from os import path as fpath, remove as fremove, stat as fstat
+from os import path as fpath, remove as fremove, stat as fstat, listdir, makedirs
 import logging, logging.handlers
 import signal
-import webdav.client as wc
+try:
+  import webdav.client as wc
+except:
+  packages = ""
+  with open("../requirements.txt", "rb") as requirements:
+    req_tab = requirements.read().splitlines()
+#     size_tab = len(req_tab)
+    for indice, line in enumerate(req_tab):
+      if indice == 0 :
+        packages = "{0}".format(line.decode('utf-8'))
+      else:
+        packages = "{0}, {1}".format(packages, line.decode('utf-8'))
+
+  print('Please install python libraries: {0}'.format(packages))
+  exit(1)
 
 __author__ = "Alain Maibach"
 __status__ = "Beta tests"
@@ -105,6 +119,8 @@ class core():
 
     if passwd == "" or passwd is None:
       self.sendlog(msg="Empty password set.", dst=self.__logtype, level='warn')
+
+    self.__root = root
 
     self.__options = {
       'webdav_hostname': host,
@@ -242,7 +258,7 @@ class core():
       self.__client.list()
     except:
       errmsg = "Unable to connect to server: {0}.".format(self.__host)
-      if self.__logtype == 'file': 
+      if self.__logtype == 'file':
         self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
       else:
         self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
@@ -267,7 +283,7 @@ class core():
 
     try:
       if not self.__client.check(target):
-        if self.__logtype == 'file': 
+        if self.__logtype == 'file':
           self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg="Unable to find {0}".format(target))
         else:
           self.sendlog(dst=self.__logtype, level="warn", msg="Unable to find {0}".format(target))
@@ -276,7 +292,7 @@ class core():
       else:
         self.__error = {'code':0}
     except wc.WebDavException as exception:
-      if self.__logtype == 'file': 
+      if self.__logtype == 'file':
         self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
       else:
         self.sendlog(dst=self.__logtype, level="error", msg=exception)
@@ -292,8 +308,17 @@ class core():
     if self.__error['code'] == 1:
       return(self.__error)
 
-    remotefiles = self.__client.list(target)
-    return(remotefiles)
+    try:
+      remotefiles = self.__client.list(target)
+    except wc.WebDavException as exception:
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=exception)
+      else:
+        self.sendlog(dst=self.__logtype, level="warn", msg=exception)
+      self.__error = {'code':1,'reason':exception}
+      return(self.__error)
+    else:
+      return(remotefiles)
 
   def getinfo(self, target):
     '''
@@ -302,8 +327,17 @@ class core():
     if self.__error['code'] == 1:
       return(self.__error)
 
-    fileinfos = self.__client.info(target)
-    return(fileinfos)
+    try:
+      fileinfos = self.__client.info(target)
+    except wc.WebDavException as exception:
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=exception)
+      else:
+        self.sendlog(dst=self.__logtype, level="warn", msg=exception)
+      self.__error = {'code':1,'reason':exception}
+      return(self.__error)
+    else:
+      return(fileinfos)
 
   def download(self, remote, local):
     '''
@@ -312,46 +346,120 @@ class core():
     if self.__error['code'] == 1:
       return(self.__error)
 
-    # ici
-    # check if it is a directory or a file and adapt below to be able to download in any cases
-    #client.download_directory(remote_path="/{0}/Terminator 2.avi".format(share), local_path="{0}/Terminator-2.avi".format(lpath), progress=progress)
-    # ici
-
+    isdir = False
     fileinfo = self.getinfo(remote)
-    rfilesize = fileinfo['size']
-
-    try:
-      self.__client.download(remote_path=remote, local_path=local, progress=self.progress)
-      # print console carriage return after progress bar
-      #self.sendlog(dst='console', msg='')
-      print('')
-    except wc.WebDavException as exception:
-      if self.__logtype == 'file': 
-        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
-      else:
-        self.sendlog(dst=self.__logtype, level="error", msg=exception)
-
-      self.__error = {'code':1,'reason':exception}
+    if 'code' in fileinfo:
       return(self.__error)
 
-    lfilesize = self.file_size(local)
+    rfilesize = fileinfo['size']
 
-    if int(lfilesize) == int(rfilesize) :
-      if self.__logtype == 'file': 
-        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg='File {0} downloaded correctly'.format(rfilename))
+    if rfilesize is None:
+      rdircontent = self.__client.list(remote)
+      if 'code' in rdircontent:
+        return(self.__error)
+      if len(rdircontent) > 0:
+        isdir = True
       else:
-        self.sendlog(dst=self.__logtype, msg='File {0} downloaded correctly'.format(rfilename))
+        errstr = 'Directory {0} is empty, or the file is corrupted, skip downloading'.format(remote)
+        if self.__logtype == 'file':
+          self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=errstr)
+        else:
+          self.sendlog(dst=self.__logtype, level="warn", msg=errstr)
+        self.__error = {'code':0,'reason':errstr}
+        return(self.__error)
 
-      self.__error = {'code':0}
+    if fpath.exists(local):
+      if not isdir:
+        lfilesize = self.file_size(local)
+        if int(lfilesize) == int(rfilesize) :
+          errmsg = "File {0} already locally exists, skip downloading.".format(local)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=errmsg)
+          else:
+            self.sendlog(dst=self.__logtype, msg=errmsg)
+          self.__error = {'code':0,'reason':errmsg}
+          return(self.__error)
+        else:
+          errmsg = "File {0} locally exists, but seems to be different, trying to download again.".format(local)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=errmsg)
+          else:
+            self.sendlog(dst=self.__logtype, level="warn", msg=errmsg)
+
+    if not self.__client.check(remote):
+      errmsg = "Remote file {0} not found.".format(remote)
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=errmsg)
+      else:
+        self.sendlog(dst=self.__logtype, level="warn", msg=errmsg)
+      self.__error = {'code':1,'reason':errmsg}
+      return(self.__error)
+
+    if isdir:
+      infostr = 'Downloading directory {0}'.format(remote)
+      self.make_local_dirs(local)
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=infostr)
+      else:
+        self.sendlog(dst=self.__logtype, msg=infostr)
+
+      for f in rdircontent:
+        if f[-1] == "/" :
+          f = f[:-1]
+
+        remotefrecurse = "{0}/{1}".format(remote, f)
+        localefrecurse = "{0}/{1}".format(local, f)
+
+        self.download(remotefrecurse, localefrecurse)
+        if self.__error['code'] == 1:
+          return(self.__error)
+
     else:
-      if self.__logtype == 'file': 
-        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg='Download failed: partially retrieved.')
+      infostr = 'Downloading file {0}'.format(remote)
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=infostr)
       else:
-        self.sendlog(dst=self.__logtype, level="warn", msg='Download failed: partially retrieved.')
+        self.sendlog(dst=self.__logtype, msg=infostr)
 
-      fremove(location)
-      #self.__error = {'code':1,'reason':"Unable to find {0}".format(target)}
-      self.__error = {'code':1,'reason':"Download failed: partially retrieved."}
+      localdirdest = fpath.dirname(fpath.abspath(local))
+      localdirdest = localdirdest.replace("//","/")
+      if not fpath.exists( localdirdest ):
+        self.make_local_dirs(localdirdest)
+
+      try:
+        self.__client.download(remote_path=remote, local_path=local, progress=self.progress)
+        # print console carriage return after progress bar
+        #self.sendlog(dst='console', msg='')
+        print('')
+      except wc.WebDavException as exception:
+        if self.__logtype == 'file':
+          self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
+        else:
+          self.sendlog(dst=self.__logtype, level="error", msg=exception)
+
+        self.__error = {'code':1,'reason':exception}
+        return(self.__error)
+
+      lfilesize = self.file_size(local)
+
+      if int(lfilesize) == int(rfilesize) :
+        if self.__logtype == 'file':
+          self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg='File {0} downloaded correctly'.format(remote))
+        else:
+          self.sendlog(dst=self.__logtype, msg='File {0} downloaded correctly'.format(remote))
+
+        self.__error = {'code':0}
+      else:
+        if self.__logtype == 'file':
+          self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg='Download failed: partially retrieved.')
+        else:
+          self.sendlog(dst=self.__logtype, level="warn", msg='Download failed: partially retrieved.')
+
+        fremove(local)
+        #self.__error = {'code':1,'reason':"Unable to find {0}".format(target)}
+        self.__error = {'code':1,'reason':"Download failed: partially retrieved."}
+
+      return(self.__error)
 
     return(self.__error)
 
@@ -368,7 +476,7 @@ class core():
       #self.sendlog(dst='console', msg='')
       print('')
     except wc.WebDavException as exception:
-      if self.__logtype == 'file': 
+      if self.__logtype == 'file':
         self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
       else:
         self.sendlog(dst=self.__logtype, level="error", msg=exception)
@@ -376,13 +484,18 @@ class core():
       return(self.__error)
 
     if not self.__client.check(remote):
-      if self.__logtype == 'file': 
+      if self.__logtype == 'file':
         self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg="Unable to upload {0}".format(local))
       else:
         self.sendlog(dst=self.__logtype, level="warn", msg="Unable to upload {0}".format(local))
       self.__error = {'code':1,'reason':"Unable to upload {0}".format(local)}
     else:
       self.__error = {'code':0}
+
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg='File {0} uploaded correctly'.format(local))
+      else:
+        self.sendlog(dst=self.__logtype, msg='File {0} uploaded correctly'.format(local))
 
     return(self.__error)
 
@@ -422,6 +535,69 @@ class core():
 
     self.__client.move(remote_path_from=target, remote_path_to=new)
 
+  def search(self, target, path=False, found=False):
+    '''
+     Search for file or directory recursively
+    '''
+
+    if not found:
+      found = []
+
+    if path:
+      currdir = str(path)
+    else:
+      currdir = "/"
+
+    remotefiles = self.list(currdir)
+    if 'code' in remotefiles:
+      return(self.__error)
+
+    if len(remotefiles) > 0:
+      for f in remotefiles:
+        if f[-1] == "/" :
+          f = f[:-1]
+
+        if currdir != '/':
+          currfile = "{0}/{1}".format(currdir,f)
+        else:
+          currfile = "/{0}".format(f)
+
+        if target in f or target == f:
+          found.append( "{0}/{1}".format(currdir,f) )
+        if self.__client.is_dir(currfile):
+          found = self.search(target, currfile, found)
+
+      # Ensure there is no duplicates in list found
+      uniqueList=[]
+      for i in found:
+        if i not in uniqueList:
+          uniqueList.append(i)
+      found = uniqueList
+
+    return(found)
+
+  def make_local_dirs(self, directory):
+    if not fpath.exists(directory):
+      try:
+          makedirs(directory, 0o750)
+      except PermissionError as e:
+        errmsg = "Unable to create local directory {0}: {1}".format(directory, e.strerror)
+        if self.__logtype == 'file':
+          self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=errmsg)
+        else:
+          self.sendlog(dst=self.__logtype, level="error", msg=errmsg)
+        self.__error = {'code':1,'reason':errmsg}
+        return(self.__error)
+      except OSError as exception:
+        if exception.errno != errno.EEXIST:
+          errmsg = "Unable to create local directory {0}: {1}".format(directory, exception)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=errmsg)
+          else:
+            self.sendlog(dst=self.__logtype, level="error", msg=errmsg)
+          self.__error = {'code':1,'reason':errmsg}
+          return(self.__error)
+
   #pkidbDict = property(read_pkidb, None, None, "Get pki db in a dict")
 
 if __name__ == "__main__":
@@ -430,16 +606,16 @@ if __name__ == "__main__":
   """
 
   # Webdav global informations part
-  rhost = "localhost"
-  rlogin = "toto"
-  rpass = "123456"
-  webdav_root = ""
+  rhost = "https://mycloud.maibach.fr:8443"
+  rlogin = "kikidood"
+  rpass = "pPN6o4whU8ySMCpL"
+  webdav_root = "/remote.php/webdav/"
   
   # Webdav target path
   share = "/public"
   
   # local download filesystem path
-  lpath = "/home/amaibach/Downloads"
+  lpath = "/home/amaibach/Downloads/pydav-datas"
 
   # logging information
   logdst = "console" # other values: syslog | file
@@ -460,60 +636,56 @@ if __name__ == "__main__":
    del(pydav)
    exit(res['code'])
 
+  if lpath[-1] == "/" :
+    lpath = lapath[:-1]
+
+  '''
   ############################
   # list target path content #
   ############################
   remotefiles = pydav.list(share)
+  if 'code' in remotefiles:
+     del(pydav)
+     exit(remotefiles['code'])
 
-  directories = []
-  files = []
   if len(remotefiles) > 0:
-    for f in remotefiles:
-      if f[-1] == "/" and f != "{0}/".format(share) :
-        directories.append(f)
-      elif f != "{0}/".format(share):
-        files.append(f)
+    ########################
+    ## Downloading a file ##
+    ########################
 
-    # if there is directories
-    if len(directories) > 0:
-      # print theme
-      pydav.sendlog(msg="Directories {0}".format(directories))
-
-    # if there is files
-    if len(files) > 0:
-      # print theme
-      pydav.sendlog(msg="Files {0}".format(files))
-
-      ###########################################
-      # downloading a file if present in remote #
-      ###########################################
-
-      rfilename = 'exemple.txt'
-
-      if rfilename in files:
-        rfileloc = "{0}/{1}".format(share, rfilename)
+    # we will look for a matching expr
+    search = 'Music'
+    res_found = pydav.search(search)
+    if 'code' in res_found:
+      pydav.sendlog(msg=res_found['reason'], level='warn')
+    else:
+      for rfilename in res_found:
         fileloc = "{0}/{1}".format(lpath, rfilename)
-      pydav.sendlog(msg='Downloading {0}'.format(rfilename))
-      res = pydav.download(rfileloc, fileloc)
-      if res['code'] == 1:
-       del(pydav)
-       exit(res['code'])
+        res = pydav.download(rfilename, fileloc)
+        if res['code'] == 1:
+         del(pydav)
+         exit(res['code'])
   else:
     pydav.sendlog(msg="No remote files or directories found", level='warn')
+  '''
 
   ######################
   ## Uploading a file ##
   ######################
 
-  lfile = './test.txt'
-
-  lfilename = fpath.splitext(fpath.basename(lfile))[0]
+  lfile = '/home/amaibach/Downloads/pydav-datas/public/Music/toto-1/todo.txt'
+  lfilename = fpath.basename(lfile)
   rfile = "{0}/{1}".format(share,lfilename)
+
   pydav.sendlog(msg='Uploading {0}'.format(lfile))
   res = pydav.upload(lfile, rfile)
   if res['code'] == 1:
    del(pydav)
    exit(res['code'])
+
+  # ici
+  del(pydav)
+  exit(0)
 
   ###################
   ## Removing file ##
@@ -521,11 +693,18 @@ if __name__ == "__main__":
 
   # list remote files ... again...
   remotefiles = pydav.list(share)
-  print(remotefiles)
+  if 'code' in remotefiles:
+     del(pydav)
+     exit(remotefiles['code'])
+  else:
+    print(remotefiles)
 
-  file2del = 'lfile'
+  file2del = 'todo'
   pydav.delete("{0}/{1}".format(share, file2del))
 
-  # list remote files ... again...
   remotefiles = pydav.list(share)
-  print(remotefiles)
+  if 'code' in remotefiles:
+     del(pydav)
+     exit(remotefiles['code'])
+  else:
+    print(remotefiles)

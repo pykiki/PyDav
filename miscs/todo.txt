@@ -1,10 +1,11 @@
-# ajouter la verif de la dependence python webdavclient sinon crash.
-# verifier la compat python 2/3
-
-# finir les func upload et download
-# verifier si les fichier existent avant de recup en local et de upload en remote
-  # fair l'upload, ajouter la possibilité de dir + verifier les taille de fichier pour l'upload + presence fichier/repertoire
-  # pour les dir, verifier le contnu ou un md5 ?
+# finir les func upload
+  # verifier si les fichier existent avant de upload
+    # fair l'upload, ajouter la possibilité de dir + verifier les taille de fichier pour l'upload + presence fichier/repertoire
+    # pour les dir, verifier le contnu ou un md5 ?
+    upload()
+    is_dir(remote)
+    mkdir(remote)
+    sync(remote, local)
 
 # improve createdir, delete, duplicate, move functions
 

@@ -1,7 +1,46 @@
 try:
-    from setuptools import setup
+    from setuptools import setup, find_packages
 except ImportError:
     from distutils.core import setup
+
+import sys
+from setuptools.command.test import test as TestCommand
+from setuptools.command.install import install as InstallCommand
+
+version = "0.1"
+requirements = "libxml2-dev libxslt-dev python-dev"
+
+
+class Install(InstallCommand):
+
+    def run(self):
+
+        #params = "{install_params} {requirements}".format(install_params="install", requirements=requirements)
+        #cmd = "{command} {params}".format(command="apt-get", params=params)
+        #proc = subprocess.Popen(cmd, shell=True)
+        # proc.wait()
+        InstallCommand.run(self)
+
+class Test(TestCommand):
+
+    user_options = [('pytest-args=', 'a', "")]
+
+    def initialize_options(self):
+
+        TestCommand.initialize_options(self)
+        self.pytest_args = []
+
+    def finalize_options(self):
+
+        TestCommand.finalize_options(self)
+        self.test_args = []
+        self.test_suite = True
+
+    def run_tests(self):
+
+        import pytest
+        errno = pytest.main(self.pytest_args)
+        sys.exit(errno)
 
 config = {
     'name': 'PyDav',
