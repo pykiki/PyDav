@@ -98,8 +98,8 @@ class core():
 
     self.__logfile = logfile
 
-    if logtype not in ['console','file','syslog']:
-      self.sendlog(msg="Log destination not set or incorrect, logging to console", dst='console', level='warn')
+    if logtype not in ['console', 'file', 'syslog']:
+      self.sendlog(msg="Log destination {} incorrect, logging to console".format(logtype), dst='console', level='warn')
       self.__logtype = 'console'
     else:
       self.__logtype = logtype

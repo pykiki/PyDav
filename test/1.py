@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
-import sys
-from os import path as fpath, remove as fremove, stat as fstat
+from sys import version_info
+from os import path as fpath
 import signal
-from PyDav import pydav
+try:
+  from PyDav import connect
+except:
+  print('Please Install PyDav library.')
+  exit(1)
 
 __author__ = "Alain Maibach"
 __status__ = "Beta tests"
@@ -29,110 +33,160 @@ __status__ = "Beta tests"
     Contact: alain.maibach@gmail.com / 34 rue appienne, 13480 Calas - FRANCE.
 '''
 
-python3 = sys.version_info.major == 3
+python3 = version_info.major == 3
 
 curScriptDir = fpath.dirname(fpath.abspath(__file__))
 #parentScriptDir = fpath.dirname(fpath.dirname(fpath.abspath(__file__)))
 curScriptName = fpath.splitext(fpath.basename(__file__))[0]
 
+def sigint_handler(signum, frame):
+  '''
+  Class sig handler for ctrl+c interrupt
+  '''
+
+  print('\nINFO: Execution interrupted by pressing [CTRL+C]')
+  exit(0)
+
+#def ():
+#  pass
+
 if __name__ == "__main__":
-  # Webdav global informations part
-  rhost = ""
-  rlogin = ""
-  rpass = ""
-  webdav_root = ""
 
-  # Webdav target path
-  share = "/public"
+  configpath = "config.ini"
+  configpath = "{}/{}".format(curScriptDir, configpath)
 
-  # local download filesystem path
-  lpath = "/home/amaibach/Downloads"
+  # calling signal handler
+  signal.signal(signal.SIGINT, sigint_handler)
 
-  # logging information
-  logdst = "console" # other values: syslog | file
-  logfilepath = '/var/log/{0}.log'.format(curScriptName)
+  webdavClient = connect.core(configpath)
+  if webdavClient['code'] != 0:
+    print(webdavClient['content'])
+    exit(1)
 
-  # init webdav
-  pydav = pydav.core(host=rhost, login=rlogin, passwd=rpass, root=webdav_root, logtype=logdst, logfile=logfilepath, verbosity=False)
-
-  # connection to webdav server
-  connected = pydav.connect()
-  if connected['code'] == 1:
-   del(pydav)
-   exit(connected['code'])
-
-  # checking target path exists
-  res = pydav.check(share)
-  if res['code'] == 1:
-   del(pydav)
-   exit(res['code'])
+  # ici
+  del(webdavClient['content'])
+  exit(0)
 
   ############################
   # list target path content #
   ############################
   remotefiles = pydav.list(share)
+  if 'code' in remotefiles:
+    pydav.sendlog(msg=remotefiles['reason'], level='warn')
+    del(pydav)
+    exit(remotefiles['code'])
 
-  directories = []
-  files = []
   if len(remotefiles) > 0:
-    for f in remotefiles:
-      if f[-1] == "/" and f != "{0}/".format(share) :
-        directories.append(f)
-      elif f != "{0}/".format(share):
-        files.append(f)
+    ########################
+    ## Downloading a file ##
+    ########################
 
-    # if there is directories
-    if len(directories) > 0:
-      # print theme
-      pydav.sendlog(msg="Directories {0}".format(directories))
-
-    # if there is files
-    if len(files) > 0:
-      # print theme
-      pydav.sendlog(msg="Files {0}".format(files))
-
-      ###########################################
-      # downloading a file if present in remote #
-      ###########################################
-
-      rfilename = 'exemple.txt'
-
-      if rfilename in files:
-        rfileloc = "{0}/{1}".format(share, rfilename)
+    # we will look for a matching expr
+    search = 'Music'
+    res_found = pydav.search(search)
+    if 'code' in res_found:
+      pydav.sendlog(msg=res_found['reason'], level='warn')
+    else:
+      for rfilename in res_found:
         fileloc = "{0}/{1}".format(lpath, rfilename)
-      pydav.sendlog(msg='Downloading {0}'.format(rfilename))
-      res = pydav.download(rfileloc, fileloc)
-      if res['code'] == 1:
-       del(pydav)
-       exit(res['code'])
+        res = pydav.download(rfilename, fileloc)
+        if res['code'] == 1:
+         del(pydav)
+         exit(res['code'])
   else:
     pydav.sendlog(msg="No remote files or directories found", level='warn')
+
+  # ici
+  del(webdavClient)
+  exit(0)
 
   ######################
   ## Uploading a file ##
   ######################
 
-  lfile = './test.txt'
-
-  lfilename = fpath.splitext(fpath.basename(lfile))[0]
+  lfile = '/home/amaibach/Downloads/pydav-datas/public/todo.txt'
+  lfilename = fpath.basename(lfile)
   rfile = "{0}/{1}".format(share,lfilename)
-  pydav.sendlog(msg='Uploading {0}'.format(lfile))
+
   res = pydav.upload(lfile, rfile)
   if res['code'] == 1:
-   del(pydav)
-   exit(res['code'])
+    pydav.sendlog(msg=res['reason'], level='warn')
+    del(pydav)
+    exit(res['code'])
+
+  ################################
+  # list remote files .. again.. #
+  ################################
+  remotefiles = pydav.list(share)
+  if 'code' in remotefiles:
+    pydav.sendlog(msg=remotefiles['reason'], level='warn')
+    del(pydav)
+    exit(remotefiles['code'])
+  else:
+    pydav.sendlog(msg=remotefiles, level='info')
+
+  ##################
+  ## Copying file ##
+  ##################
+
+  file2cp = 'todo.txt'
+  dst = 'toto-1/zigzag/zizi/todo-copied.txt'
+
+  file2cp = "{0}/{1}".format(share, file2cp)
+  dst = "{0}/{1}".format(share, dst)
+  rescp = pydav.duplicate(file2cp, dst)
+  if rescp['code'] != 0:
+    pydav.sendlog(msg=rescp['reason'], level='warn')
+    del(pydav)
+    exit(rescp['code'])
+
+  ###################
+  ##  Moving  file ##
+  ###################
+
+  file2mv = 'toto-1/zigzag/zizi/todo-copied.txt'
+  dst = 'toto-2/zigzag/todo-moved.txt'
+
+  file2mv = "{0}/{1}".format(share, file2mv)
+  dst = "{0}/{1}".format(share, dst)
+  resmv = pydav.move(file2mv, dst)
+  if resmv['code'] != 0:
+    pydav.sendlog(msg=rescp['reason'], level='warn')
+    del(pydav)
+    exit(rescp['code'])
 
   ###################
   ## Removing file ##
   ###################
 
-  # list remote files ... again...
-  remotefiles = pydav.list(share)
-  print(remotefiles)
+  file2del= 'toto-1/'
+  resdel = pydav.delete("{0}/{1}".format(share, file2del))
+  if resdel['code'] != 0:
+    pydav.sendlog(msg=resdel['reason'], level='warn')
+    del(pydav)
+    exit(resdel['code'])
+  else:
+    # list files to check
+    remotefiles = pydav.list(share)
+    if 'code' in remotefiles:
+      pydav.sendlog(msg=remotefiles['reason'], level='warn')
+      del(pydav)
+      exit(remotefiles['code'])
+    else:
+      pydav.sendlog(msg=remotefiles, level='info')
 
-  file2del = 'lfile'
-  pydav.delete("{0}/{1}".format(share, file2del))
-
-  # list remote files ... again...
-  remotefiles = pydav.list(share)
-  print(remotefiles)
+  file2del= 'toto-2/'
+  resdel = pydav.delete("{0}/{1}".format(share, file2del))
+  if resdel['code'] != 0:
+    pydav.sendlog(msg=resdel['reason'], level='warn')
+    del(pydav)
+    exit(resdel['code'])
+  else:
+    # list files to check
+    remotefiles = pydav.list(share)
+    if 'code' in remotefiles:
+      pydav.sendlog(msg=remotefiles['reason'], level='warn')
+      del(pydav)
+      exit(remotefiles['code'])
+    else:
+      pydav.sendlog(msg=remotefiles, level='info')

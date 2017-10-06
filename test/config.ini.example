@@ -1,0 +1,19 @@
+[DEFAULT]
+# local download filesystem path
+localpath = /home/amaibach/pydav-datas
+debug = False
+
+[webdav]
+# Webdav global informations part
+rhost = http://127.0.0.1
+rlogin = johnDoe
+rpass = None
+webdav_root = /
+# Webdav target path
+share = /synced
+
+[logging]
+# logging information
+logdst = console # other values: syslog | file
+logfilepath = /var/log/
+
