@@ -2,27 +2,31 @@
 # -*- coding: UTF-8 -*-
 
 import sys
-from os import path as fpath, remove as fremove, stat as fstat, listdir, makedirs
+import re
+from os import path as fpath, remove as fremove, stat as fstat, listdir, makedirs, walk
+from fnmatch import filter as fnfilter
 import logging, logging.handlers
 import signal
 try:
   import webdav.client as wc
 except:
-  packages = ""
-  with open("../requirements.txt", "rb") as requirements:
-    req_tab = requirements.read().splitlines()
-#     size_tab = len(req_tab)
-    for indice, line in enumerate(req_tab):
-      if indice == 0 :
-        packages = "{0}".format(line.decode('utf-8'))
-      else:
-        packages = "{0}, {1}".format(packages, line.decode('utf-8'))
-
+  packages = "argcomplete>=1.9.2, lxml>=3.8.0, pycurl>=7.43.0, webdavclient>=1.0.8"
+#  packages = ""
+#  with open("../requirements.txt", "rb") as requirements:
+#    req_tab = requirements.read().splitlines()
+#    for indice, line in enumerate(req_tab):
+#      if indice == 0 :
+#        packages = "{0}".format(line.decode('utf-8'))
+#      else:
+#        packages = "{0}, {1}".format(packages, line.decode('utf-8'))
+#
   print('Please install python libraries: {0}'.format(packages))
   exit(1)
+else:
+  from webdav.client import WebDavException
 
 __author__ = "Alain Maibach"
-__status__ = "Beta tests"
+__status__ = "Beta"
 
 '''
     Python3 skel helper
@@ -80,8 +84,8 @@ class core():
     login,
     passwd,
     root,
-    logtype='syslog',
-    logfile='',
+    logtype='console',
+    logfile=False,
     verbosity=False
     ):
     '''
@@ -92,17 +96,17 @@ class core():
 
     self.__error = {'code':0, 'reason':''}
 
+    self.__logfile = logfile
+
     if logtype not in ['console','file','syslog']:
-      self.sendlog(msg="Log destination not set or incorrect, logging to syslog", dst='console', level='warn')
-      self.__logtype = 'syslog'
+      self.sendlog(msg="Log destination not set or incorrect, logging to console", dst='console', level='warn')
+      self.__logtype = 'console'
     else:
       self.__logtype = logtype
 
-    if self.__logtype == 'file' and logfile == '':
-      self.__logtype = 'syslog'
-      self.sendlog(msg="Log destination file not set, logging to syslog", dst='console', level='warn')
-    else:
-      self.__logfile = logfile
+    if self.__logtype == 'file' and not logfile:
+      self.__logtype = 'console'
+      self.sendlog(msg="Log destination file not set, logging to console", dst='console', level='warn')
 
     self.__verbose = verbosity
     if host != "" and host is not None:
@@ -148,11 +152,10 @@ class core():
     Class sig handler for ctrl+c interrupt
     '''
 
-    if self.__verbose:
-      if self.__logtype == 'file':
-        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg="Execution interrupted by pressing [CTRL+C]")
-      else:
-        self.sendlog(msg="Execution interrupted by pressing [CTRL+C]", dst=self.__logtype)
+    if self.__logtype == 'file':
+      self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg="Execution interrupted by pressing [CTRL+C]")
+    else:
+      self.sendlog(msg="Execution interrupted by pressing [CTRL+C]", dst=self.__logtype)
 
     # Do something more here during cancel action.
     exit(0)
@@ -188,7 +191,8 @@ class core():
       return(self.__error)
 
     statinfo = fstat(fname)
-    return(statinfo.st_size)
+    fsize = int(statinfo.st_size)
+    return(fsize)
 
   def sendlog(self, msg, level='INFO', dst=False, logfpath=False):
     '''
@@ -203,7 +207,8 @@ class core():
       dst = self.__logtype
 
     if not logfpath:
-      logfpath = self.__logfile
+      if self.__logfile:
+        logfpath = self.__logfile
 
     message = str(msg)
     loglvl = str(level)
@@ -291,7 +296,7 @@ class core():
         self.__error = {'code':1,'reason':"Unable to find {0}".format(target)}
       else:
         self.__error = {'code':0}
-    except wc.WebDavException as exception:
+    except WebDavException as exception:
       if self.__logtype == 'file':
         self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
       else:
@@ -310,7 +315,7 @@ class core():
 
     try:
       remotefiles = self.__client.list(target)
-    except wc.WebDavException as exception:
+    except WebDavException as exception:
       if self.__logtype == 'file':
         self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=exception)
       else:
@@ -329,7 +334,7 @@ class core():
 
     try:
       fileinfos = self.__client.info(target)
-    except wc.WebDavException as exception:
+    except WebDavException as exception:
       if self.__logtype == 'file':
         self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=exception)
       else:
@@ -345,6 +350,9 @@ class core():
     '''
     if self.__error['code'] == 1:
       return(self.__error)
+
+    local = fpath.normpath(local) 
+    remote = fpath.normpath(remote) 
 
     isdir = False
     fileinfo = self.getinfo(remote)
@@ -372,7 +380,7 @@ class core():
       if not isdir:
         lfilesize = self.file_size(local)
         if int(lfilesize) == int(rfilesize) :
-          errmsg = "File {0} already locally exists, skip downloading.".format(local)
+          errmsg = "File {0} already exists on local filesystem, skipping download.".format(local)
           if self.__logtype == 'file':
             self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=errmsg)
           else:
@@ -380,7 +388,7 @@ class core():
           self.__error = {'code':0,'reason':errmsg}
           return(self.__error)
         else:
-          errmsg = "File {0} locally exists, but seems to be different, trying to download again.".format(local)
+          errmsg = "File {0} exists on local filesystem, but seems to be different, trying to download again.".format(local)
           if self.__logtype == 'file':
             self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=errmsg)
           else:
@@ -422,7 +430,7 @@ class core():
         self.sendlog(dst=self.__logtype, msg=infostr)
 
       localdirdest = fpath.dirname(fpath.abspath(local))
-      localdirdest = localdirdest.replace("//","/")
+      localdirdest = fpath.normpath(localdirdest) 
       if not fpath.exists( localdirdest ):
         self.make_local_dirs(localdirdest)
 
@@ -431,7 +439,7 @@ class core():
         # print console carriage return after progress bar
         #self.sendlog(dst='console', msg='')
         print('')
-      except wc.WebDavException as exception:
+      except WebDavException as exception:
         if self.__logtype == 'file':
           self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
         else:
@@ -470,32 +478,289 @@ class core():
     if self.__error['code'] == 1:
       return(self.__error)
 
-    try:
-      self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
-      # print console carriage return after progress bar
-      #self.sendlog(dst='console', msg='')
-      print('')
-    except wc.WebDavException as exception:
+    if not fpath.exists(local):
+      errstr = 'Unable to find locale file {lfile}. Aborting upload..'.format(lfile=local)
       if self.__logtype == 'file':
-        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=errstr)
       else:
-        self.sendlog(dst=self.__logtype, level="error", msg=exception)
-      self.__error = {'code':1,'reason':exception}
+        self.sendlog(dst=self.__logtype, level="error", msg=errstr)
+      self.__error = {'code':1,'reason':errstr}
       return(self.__error)
 
-    if not self.__client.check(remote):
-      if self.__logtype == 'file':
-        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg="Unable to upload {0}".format(local))
-      else:
-        self.sendlog(dst=self.__logtype, level="warn", msg="Unable to upload {0}".format(local))
-      self.__error = {'code':1,'reason':"Unable to upload {0}".format(local)}
+    infostr = 'Uploading {} to {}'.format(local,remote)
+    if self.__logtype == 'file':
+      self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=infostr)
     else:
-      self.__error = {'code':0}
+      self.sendlog(dst=self.__logtype, msg=infostr)
 
-      if self.__logtype == 'file':
-        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg='File {0} uploaded correctly'.format(local))
+    local_isdir = fpath.isdir(local)
+
+    rfilename = fpath.basename(fpath.normpath(local))
+    if local_isdir:
+      rfiledst = "{}/{}".format(remote, rfilename)
+    else:
+      rfiledst = remote
+    rfiledst = fpath.normpath(rfiledst)
+
+    if not self.__client.check(rfiledst):
+      if local_isdir:
+        mkdires = self.createdir(rfiledst)
+        if mkdires['code'] == 1:
+          errmsg = 'Unable to create remote directory {}'.format(rfiledst)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=errmsg)
+          else:
+            self.sendlog(dst=self.__logtype, level="warn", msg=errmsg)
+
+          self.__error = {'code':1, 'reason':errmsg}
+          return(self.__error)
+
+        remote = str(rfiledst)
+        for file_ in listdir(local):
+          recursed_local = "{}/{}".format(local, file_)
+          recursed_local = fpath.normpath(recursed_local)
+
+          if fpath.isdir(recursed_local):
+            recursed_remote = remote
+          else:
+            recursed_remote = "{}/{}".format(remote, file_)
+          recursed_remote = fpath.normpath(recursed_remote)
+
+          self.upload(recursed_local, recursed_remote)
       else:
-        self.sendlog(dst=self.__logtype, msg='File {0} uploaded correctly'.format(local))
+        try:
+          self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
+          # print console carriage return after progress bar
+          #self.sendlog(dst='console', msg='')
+          print('')
+        except WebDavException as exception:
+          if re.match('Remote parent for.* not found', str(exception)):
+            parentdir = fpath.dirname(fpath.abspath(remote))
+            res = self.createdir(parentdir)
+            if res['code'] == 1 :
+              errmsg = "Unable to create remote parent directory {}.".format(parentdir)
+              if self.__logtype == 'file':
+                self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+              else:
+                self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+              self.__error = {'code':1, 'reason':errmsg}
+              return(self.__error)
+            else:
+              try:
+                self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
+                # print console carriage return after progress bar
+                #self.sendlog(dst='console', msg='')
+                print('')
+              except WebDavException as exception:
+                if self.__logtype == 'file':
+                  self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
+                else:
+                  self.sendlog(dst=self.__logtype, level="error", msg=exception)
+                self.__error = {'code':1,'reason':exception}
+                return(self.__error)
+          else:
+            if self.__logtype == 'file':
+              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
+            else:
+              self.sendlog(dst=self.__logtype, level="error", msg=exception)
+            self.__error = {'code':1,'reason':exception}
+            return(self.__error)
+
+        remoteinfo = self.getinfo(remote)
+        if 'code' in remoteinfo:
+          errstr = remoteinfo['reason']
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=errstr)
+          else:
+            self.sendlog(dst=self.__logtype, level="warn", msg=errstr)
+
+          self.__error = {'code':1, 'reason':errstr}
+          return(self.__error)
+
+        lfsize = self.file_size(local)
+        if lfsize == int(remoteinfo['size']):
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg='File {0} uploaded correctly'.format(remote))
+          else:
+            self.sendlog(dst=self.__logtype, msg='File {0} uploaded correctly'.format(remote))
+
+          self.__error = {'code':0}
+        else:
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg='Upload failed: partially sent.')
+          else:
+            self.sendlog(dst=self.__logtype, level="warn", msg='Upload failed: partially sent.')
+
+          self.delete(remote)
+          self.__error = {'code':1,'reason':"Upload failed: partially sent."}
+
+        return(self.__error)
+
+      if local_isdir:
+        remoteflist = self.list_recurse(remote)
+        for f in remoteflist:
+          finfo = self.getinfo(f)
+          if 'code' in finfo:
+            return(self.__error)
+
+          lfilename = fpath.basename(f)
+          lbasepath = fpath.dirname(fpath.abspath(f)).replace(remote, '')
+          lbasepath = "{}/{}".format(local, lbasepath)
+          lbasepath = fpath.normpath(lbasepath)
+          lfile = "{}/{}".format(lbasepath, lfilename)
+          lfile = fpath.normpath(lfile)
+          lfsize = self.file_size(lfile)
+
+          if not fpath.isdir(lfile):
+            if lfsize != int(finfo['size']):
+              msg = 'Upload failed: file {} partially sent.'.format(f)
+              if self.__logtype == 'file':
+                self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=msg)
+              else:
+                self.sendlog(dst=self.__logtype, level="warn", msg=msg)
+              self.delete(f)
+              self.__error = {'code':1,'reason':msg}
+
+        if self.__error['code'] == 0:
+          msg = 'Uploading {} Success.'.format(local)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
+          else:
+            self.sendlog(dst=self.__logtype, msg=msg)
+          self.__error = {'code':0,'reason':msg}
+        else:
+          msg = 'Upload failed: directory {} partially sent.'.format(local)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=msg)
+          else:
+            self.sendlog(dst=self.__logtype, level="warn", msg=msg)
+
+          self.__error = {'code':1,'reason':msg}
+    else:
+      if self.__client.is_dir(remote):
+        remoteflist = self.list_recurse(remote)
+
+        lclfiles =  self.list_files_ldir(local)
+        for file_ in lclfiles:
+          basepath = fpath.dirname(fpath.abspath(file_))
+          torem = fpath.dirname(fpath.abspath(local))
+          basepath = basepath.replace(torem,'')
+          filename = fpath.basename(file_)
+          rpath = '{}/{}/{}'.format(remote, basepath, filename)
+          rpath = fpath.normpath(rpath)
+
+          if rpath not in remoteflist:
+            self.upload(file_, rpath)
+          else:
+            lfsize = self.file_size(file_)
+            finfo = self.getinfo(rpath)
+            if 'code' in finfo:
+              return(self.__error)
+
+            if lfsize != int(finfo['size']):
+              msg = 'Remote file {} mismatch local file {} trying to update.'.format(rpath, file_)
+              if self.__logtype == 'file':
+                self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=msg)
+              else:
+                self.sendlog(dst=self.__logtype, level="warn", msg=msg)
+              upres = self.upload(file_, rpath)
+              if upres['code'] == 1:
+                msg = 'Upload failed for {}, partially sent.'.format(file_)
+                if self.__logtype == 'file':
+                  self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=msg)
+                else:
+                  self.sendlog(dst=self.__logtype, level="warn", msg=msg)
+            else:
+              errmsg = "File {0} already exists on remote, skipping upload.".format(file_)
+              if self.__logtype == 'file':
+                self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=errmsg)
+              else:
+                self.sendlog(dst=self.__logtype, msg=errmsg)
+              self.__error = {'code':0,'reason':errmsg}
+      else:
+        lfsize = self.file_size(local)
+        finfo = self.getinfo(remote)
+        if 'code' in finfo:
+          return(self.__error)
+
+        if lfsize != int(finfo['size']):
+          msg = 'Remote file {} mismatch local file {} trying to update.'.format(remote, local)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=msg)
+          else:
+            self.sendlog(dst=self.__logtype, level="warn", msg=msg)
+          try:
+            self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
+            # print console carriage return after progress bar
+            #self.sendlog(dst='console', msg='')
+            print('')
+          except WebDavException as exception:
+            if re.match('Remote parent for.* not found', str(exception)):
+              parentdir = fpath.dirname(fpath.abspath(remote))
+              res = self.createdir(parentdir)
+              if res['code'] == 1 :
+                errmsg = "Unable to create remote parent directory {}.".format(parentdir)
+                if self.__logtype == 'file':
+                  self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+                else:
+                  self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+                self.__error = {'code':1, 'reason':errmsg}
+                return(self.__error)
+              else:
+                try:
+                  self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
+                  # print console carriage return after progress bar
+                  #self.sendlog(dst='console', msg='')
+                  print('')
+                except WebDavException as exception:
+                  if self.__logtype == 'file':
+                    self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
+                  else:
+                    self.sendlog(dst=self.__logtype, level="error", msg=exception)
+                  self.__error = {'code':1,'reason':exception}
+                  return(self.__error)
+            else:
+              if self.__logtype == 'file':
+                self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=exception)
+              else:
+                self.sendlog(dst=self.__logtype, level="error", msg=exception)
+              self.__error = {'code':1,'reason':exception}
+              return(self.__error)
+
+          remoteinfo = self.getinfo(remote)
+          if 'code' in remoteinfo:
+            errstr = remoteinfo['reason']
+            if self.__logtype == 'file':
+              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="error", msg=errstr)
+            else:
+              self.sendlog(dst=self.__logtype, level="warn", msg=errstr)
+
+            self.__error = {'code':1, 'reason':errstr}
+            return(self.__error)
+
+          lfsize = self.file_size(local)
+          if lfsize == int(remoteinfo['size']):
+            if self.__logtype == 'file':
+              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg='File {0} uploaded correctly'.format(remote))
+            else:
+              self.sendlog(dst=self.__logtype, msg='File {0} uploaded correctly'.format(remote))
+
+            self.__error = {'code':0}
+          else:
+            if self.__logtype == 'file':
+              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg='Upload failed: partially sent.')
+            else:
+              self.sendlog(dst=self.__logtype, level="warn", msg='Upload failed: partially sent.')
+
+            self.delete(remote)
+            self.__error = {'code':1,'reason':"Upload failed: partially sent."}
+        else:
+          errmsg = "File {0} already exists on remote, skipping upload.".format(local)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=errmsg)
+          else:
+            self.sendlog(dst=self.__logtype, msg=errmsg)
+          self.__error = {'code':0,'reason':errmsg}
 
     return(self.__error)
 
@@ -506,7 +771,55 @@ class core():
     if self.__error['code'] == 1:
       return(self.__error)
 
-    self.__client.mkdir(target)
+    try:
+      self.__client.mkdir(target)
+    except WebDavException as exception:
+      if re.match('Remote parent for.* not found', str(exception)):
+        parentdir = fpath.dirname(fpath.abspath(target))
+        res = self.createdir(parentdir)
+        if res['code'] == 1 :
+          errmsg = "Unable to create remote parent directory {}.".format(parentdir)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+          else:
+            self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+          self.__error = {'code':1, 'reason':errmsg}
+        else:
+          res = self.createdir(target)
+          if res['code'] == 1 :
+            errmsg = "Unable to create remote directory {}.".format(target)
+            if self.__logtype == 'file':
+              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+            else:
+              self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+            self.__error = {'code':1, 'reason':errmsg}
+      else:
+        errmsg = "Unable to create remote directory {}.".format(target)
+        if self.__logtype == 'file':
+          self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+        else:
+          self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+        self.__error = {'code':1, 'reason':errmsg}
+    else:
+      msg = "Directory {} created.".format(target)
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
+      else:
+        self.sendlog(msg=msg, dst=self.__logtype)
+
+      try:
+        self.__client.publish(target)
+      except:
+        errmsg = "Unable to publish resource {}.".format(target)
+        if self.__logtype == 'file':
+          self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+        else:
+          self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+        self.__error = {'code':1, 'reason':errmsg}
+      else:
+        self.__error = {'code':0, 'reason':msg}
+
+    return(self.__error)
 
   def delete(self, target):
     '''
@@ -515,7 +828,30 @@ class core():
     if self.__error['code'] == 1:
       return(self.__error)
 
-    self.__client.clean(target)
+    msg = "Removing {}.".format(target)
+    if self.__logtype == 'file':
+      self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
+    else:
+      self.sendlog(dst=self.__logtype, msg=msg)
+
+    try:
+      self.__client.clean(target)
+    except:
+      errmsg = "Unable to remove remote resource {}.".format(target)
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+      else:
+        self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+      self.__error = {'code':1, 'reason':errmsg}
+    else:
+      msg = "Remote resource {} has been removed.".format(target)
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
+      else:
+        self.sendlog(msg=msg, dst=self.__logtype)
+      self.__error = {'code':0, 'reason':msg}
+
+    return(self.__error)
 
   def duplicate(self, target, twin):
     '''
@@ -524,7 +860,68 @@ class core():
     if self.__error['code'] == 1:
       return(self.__error)
 
-    self.__client.copy(remote_path_from=target, remote_path_to=twin)
+    if not self.__client.check(target):
+      errmsg = "Remote resource {0} not found.".format(target)
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=errmsg)
+      else:
+        self.sendlog(dst=self.__logtype, level="warn", msg=errmsg)
+      self.__error = {'code':1,'reason':errmsg}
+      return(self.__error)
+
+    msg = "Copying {} to {}.".format(target, twin)
+    if self.__logtype == 'file':
+      self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
+    else:
+      self.sendlog(dst=self.__logtype, msg=msg)
+    
+    try:
+      self.__client.copy(remote_path_from=target, remote_path_to=twin)
+    except WebDavException as exception:
+      if re.match('Remote parent for.* not found', str(exception)):
+        parentdir = fpath.dirname(fpath.abspath(twin))
+        res = self.createdir(parentdir)
+        if res['code'] == 1 :
+          errmsg = "Unable to create remote parent directory {}.".format(parentdir)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+          else:
+            self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+          self.__error = {'code':1, 'reason':errmsg}
+          return(self.__error)
+        else:
+          try:
+            self.__client.copy(remote_path_from=target, remote_path_to=twin)
+          except WebDavException as exception:
+            errmsg = "Unable to duplicate remote resource {} to {}.".format(target, twin)
+            if self.__logtype == 'file':
+              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+            else:
+              self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+            self.__error = {'code':1, 'reason':errmsg}
+          else:
+            msg = "Remote resource {} has been copied to remote location {}.".format(target, twin)
+            if self.__logtype == 'file':
+              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
+            else:
+              self.sendlog(msg=msg, dst=self.__logtype)
+            self.__error = {'code':0, 'reason':msg}
+      else:
+        errmsg = "Unable to duplicate remote resource {} to {}.".format(target, twin)
+        if self.__logtype == 'file':
+          self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+        else:
+          self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+        self.__error = {'code':1, 'reason':errmsg}
+    else:
+      msg = "Remote resource {} has been copied to remote location {}.".format(target, twin)
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
+      else:
+        self.sendlog(msg=msg, dst=self.__logtype)
+      self.__error = {'code':0, 'reason':msg}
+
+    return(self.__error)
 
   def move(self, target, new):
     '''
@@ -533,7 +930,68 @@ class core():
     if self.__error['code'] == 1:
       return(self.__error)
 
-    self.__client.move(remote_path_from=target, remote_path_to=new)
+    if not self.__client.check(target):
+      errmsg = "Remote resource {0} not found.".format(target)
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=errmsg)
+      else:
+        self.sendlog(dst=self.__logtype, level="warn", msg=errmsg)
+      self.__error = {'code':1,'reason':errmsg}
+      return(self.__error)
+
+    msg = "Moving {} to {}.".format(target, new)
+    if self.__logtype == 'file':
+      self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
+    else:
+      self.sendlog(dst=self.__logtype, msg=msg)
+
+    try:
+      self.__client.move(remote_path_from=target, remote_path_to=new)
+    except WebDavException as exception:
+      if re.match('Remote parent for.* not found', str(exception)):
+        parentdir = fpath.dirname(fpath.abspath(new))
+        res = self.createdir(parentdir)
+        if res['code'] == 1 :
+          errmsg = "Unable to create remote parent directory {}.".format(parentdir)
+          if self.__logtype == 'file':
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+          else:
+            self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+          self.__error = {'code':1, 'reason':errmsg}
+          return(self.__error)
+        else:
+          try:
+            self.__client.move(remote_path_from=target, remote_path_to=new)
+          except WebDavException as exception:
+            errmsg = "Unable to move remote resource {} to {}.".format(target, twin)
+            if self.__logtype == 'file':
+              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+            else:
+              self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+            self.__error = {'code':1, 'reason':errmsg}
+          else:
+            msg = "Remote resource {} has been moved to remote location {}.".format(target, new)
+            if self.__logtype == 'file':
+              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
+            else:
+              self.sendlog(msg=msg, dst=self.__logtype)
+            self.__error = {'code':0, 'reason':msg}
+      else:
+        errmsg = "Unable to move remote resource {} to {}.".format(target, new)
+        if self.__logtype == 'file':
+          self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level='error', msg=errmsg)
+        else:
+          self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+        self.__error = {'code':1, 'reason':errmsg}
+    else:
+      msg = "Remote resource {} has been moved to remote location {}.".format(target, new)
+      if self.__logtype == 'file':
+        self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
+      else:
+        self.sendlog(msg=msg, dst=self.__logtype)
+      self.__error = {'code':0, 'reason':msg}
+
+    return(self.__error)
 
   def search(self, target, path=False, found=False):
     '''
@@ -571,10 +1029,62 @@ class core():
       uniqueList=[]
       for i in found:
         if i not in uniqueList:
+          i = fpath.normpath(i)
           uniqueList.append(i)
       found = uniqueList
 
     return(found)
+
+  def list_recurse(self, path, found=False):
+    '''
+     List path recursively
+    '''
+
+    if not found:
+      found = []
+
+    currdir = str(path)
+
+    remotefiles = self.list(currdir)
+    if 'code' in remotefiles:
+      return(self.__error)
+
+    if len(remotefiles) > 0:
+      for f in remotefiles:
+        if f[-1] == "/" :
+          f = f[:-1]
+
+        if currdir != '/':
+          currfile = "{0}/{1}".format(currdir,f)
+        else:
+          currfile = "/{0}".format(f)
+
+        if self.__client.is_dir(currfile):
+          found = self.list_recurse(currfile, found)
+
+        found.append( "{0}/{1}".format(currdir,f) )
+
+      # Ensure there is no duplicates in list found
+      uniqueList=[]
+      for i in found:
+        if i not in uniqueList:
+          i = fpath.normpath(i)
+          uniqueList.append(i)
+      found = uniqueList
+
+    return(found)
+
+  def list_files_ldir(self, directory_path, pattern="*"):
+    '''
+      Pattern can be used to look for specific files like .mp3 etc.
+    '''
+
+    files = []
+    for dirpath, dirnames, filenames in walk(directory_path):
+      for file_name in fnfilter(filenames, pattern):
+        filepath = yield fpath.join(dirpath, file_name)
+        files.append(filepath)
+    return(files)
 
   def make_local_dirs(self, directory):
     if not fpath.exists(directory):
@@ -604,18 +1114,24 @@ if __name__ == "__main__":
   """
   Main part used if self-executed
   """
+  pass
+
+  '''
+  #####################
+  # USE CASE EXAMPLES #
+  #####################
 
   # Webdav global informations part
-  rhost = "https://mycloud.maibach.fr:8443"
-  rlogin = "kikidood"
-  rpass = "pPN6o4whU8ySMCpL"
-  webdav_root = "/remote.php/webdav/"
+  rhost = ''
+  rlogin = ''
+  rpass = ''
+  webdav_root = ''
   
   # Webdav target path
-  share = "/public"
+  share = ''
   
   # local download filesystem path
-  lpath = "/home/amaibach/Downloads/pydav-datas"
+  lpath = ''
 
   # logging information
   logdst = "console" # other values: syslog | file
@@ -627,26 +1143,28 @@ if __name__ == "__main__":
   # connection to webdav server
   connected = pydav.connect()
   if connected['code'] == 1:
-   del(pydav)
-   exit(connected['code'])
+    pydav.sendlog(msg=connected['reason'], level='warn')
+    del(pydav)
+    exit(connected['code'])
 
   # checking target path exists
   res = pydav.check(share)
   if res['code'] == 1:
-   del(pydav)
-   exit(res['code'])
+    pydav.sendlog(msg=res['reason'], level='warn')
+    del(pydav)
+    exit(res['code'])
 
   if lpath[-1] == "/" :
     lpath = lapath[:-1]
 
-  '''
   ############################
   # list target path content #
   ############################
   remotefiles = pydav.list(share)
   if 'code' in remotefiles:
-     del(pydav)
-     exit(remotefiles['code'])
+    pydav.sendlog(msg=remotefiles['reason'], level='warn')
+    del(pydav)
+    exit(remotefiles['code'])
 
   if len(remotefiles) > 0:
     ########################
@@ -667,44 +1185,79 @@ if __name__ == "__main__":
          exit(res['code'])
   else:
     pydav.sendlog(msg="No remote files or directories found", level='warn')
-  '''
 
   ######################
   ## Uploading a file ##
   ######################
 
-  lfile = '/home/amaibach/Downloads/pydav-datas/public/Music/toto-1/todo.txt'
+  lfile = ''
   lfilename = fpath.basename(lfile)
   rfile = "{0}/{1}".format(share,lfilename)
 
-  pydav.sendlog(msg='Uploading {0}'.format(lfile))
   res = pydav.upload(lfile, rfile)
   if res['code'] == 1:
-   del(pydav)
-   exit(res['code'])
+    pydav.sendlog(msg=res['reason'], level='warn')
+    del(pydav)
+    exit(res['code'])
 
-  # ici
-  del(pydav)
-  exit(0)
+  ################################
+  # list remote files .. again.. #
+  ################################
+  remotefiles = pydav.list(share)
+  if 'code' in remotefiles:
+    pydav.sendlog(msg=remotefiles['reason'], level='warn')
+    del(pydav)
+    exit(remotefiles['code'])
+  else:
+    pydav.sendlog(msg=remotefiles, level='info')
 
   ###################
   ## Removing file ##
   ###################
 
-  # list remote files ... again...
-  remotefiles = pydav.list(share)
-  if 'code' in remotefiles:
-     del(pydav)
-     exit(remotefiles['code'])
+  file2del = ''
+  resdel = pydav.delete("{0}/{1}".format(share, file2del))
+  if resdel['code'] != 0:
+    pydav.sendlog(msg=resdel['reason'], level='warn')
+    del(pydav)
+    exit(resdel['code'])
   else:
-    print(remotefiles)
+    # list files to check
+    remotefiles = pydav.list(share)
+    if 'code' in remotefiles:
+      pydav.sendlog(msg=remotefiles['reason'], level='warn')
+      del(pydav)
+      exit(remotefiles['code'])
+    else:
+      pydav.sendlog(msg=remotefiles, level='info')
 
-  file2del = 'todo'
-  pydav.delete("{0}/{1}".format(share, file2del))
+  ##################
+  ## Copying file ##
+  ##################
 
-  remotefiles = pydav.list(share)
-  if 'code' in remotefiles:
-     del(pydav)
-     exit(remotefiles['code'])
-  else:
-    print(remotefiles)
+  file2cp = ''
+  dst = ''
+
+  file2cp = "{0}/{1}".format(share, file2cp)
+  dst = "{0}/{1}".format(share, dst)
+  rescp = pydav.duplicate(file2cp, dst)
+  if rescp['code'] != 0:
+    pydav.sendlog(msg=rescp['reason'], level='warn')
+    del(pydav)
+    exit(rescp['code'])
+
+  ###################
+  ##  Moving  file ##
+  ###################
+
+  file2mv = ''
+  dst = ''
+
+  file2mv = "{0}/{1}".format(share, file2mv)
+  dst = "{0}/{1}".format(share, dst)
+  resmv = pydav.move(file2mv, dst)
+  if resmv['code'] != 0:
+    pydav.sendlog(msg=rescp['reason'], level='warn')
+    del(pydav)
+    exit(rescp['code'])
+  '''
