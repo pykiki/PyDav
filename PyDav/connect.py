@@ -81,9 +81,8 @@ def createConf(configpath=False):
   if not action:
     res = {
         "error": False,
-        "message": "INFO: Nothing to do for " +
-        str(configpath) +
-        ".\nIf your sections are empty, please remove your config file and launch me again."}
+        "message": "INFO: Nothing to do for {}.\nIf your sections are empty, please remove your config file and launch me again.".format(str(configpath))
+        }
     return(res)
   else:
     try:
@@ -91,14 +90,14 @@ def createConf(configpath=False):
     except IOError:
       res = {
           "error": True,
-          "message": "ERROR: Unable to open file " +
-          str(configpath)}
+          "message": "ERROR: Unable to open file {}".format(str(configpath))
+          }
       return(res)
     except:
       res = {
           "error": True,
-          "message": "ERROR: Unable to open file " +
-          str(configpath)}
+          "message": "ERROR: Unable to open file {}".format(str(configpath))
+          }
       return(res)
     else:
       try:
@@ -106,22 +105,21 @@ def createConf(configpath=False):
       except IOError:
         res = {
             "error": True,
-            "message": "ERROR: Unable to write file " +
-            str(wfile)}
+            "message": "ERROR: Unable to write file {}".format(str(wfile))
+            }
         return(res)
       except:
         res = {
             "error": True,
-            "message": "ERROR: Unable to write file " +
-            str(configpath)}
+            "message": "ERROR: Unable to write file {}".format(str(wfile))
+            }
         return(res)
     wfile.close()
 
     res = {
       "error": False,
-      "message": "INFO: Config file " +
-      str(wfile) +
-      " written"}
+      "message": "INFO: Config file {} written".format(str(wfile))
+      }
 
   return(res)
 
@@ -141,9 +139,10 @@ def core(configpath):
     if createRes['error']:
       result = {'code':1, 'content':createRes['message']}
       return(result)
-    msg = 'INFO: Default configuration done! Please edit {} before launching {} again.'.format(config, curScriptName)
-    result = {'code':1, 'content':msg}
-    return(result)
+    else:
+      msg = 'INFO: Default configuration done! Please edit {} before launching {} again.'.format(config, curScriptName)
+      result = {'code':1, 'content':msg}
+      return(result)
 
   # Get param from config file .ini
   configinfos = configparser.ConfigParser()
