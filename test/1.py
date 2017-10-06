@@ -4,6 +4,8 @@
 from sys import version_info
 from os import path as fpath
 import signal
+import argparse
+from sys import argv
 try:
   from PyDav import connect
 except:
@@ -47,13 +49,42 @@ def sigint_handler(signum, frame):
   print('\nINFO: Execution interrupted by pressing [CTRL+C]')
   exit(0)
 
-#def ():
-#  pass
+def argCommandline(argv):
+  """
+  Manage cli script args
+  """
+  parser = argparse.ArgumentParser(description='Webdav client')
+  parser.add_argument(
+      "-c",
+      "--config",
+      action="store",
+      dest="configpath",
+      type=str,
+      default=False,
+      help=u"PyDav config file path",
+      metavar='path/to/config.ini',
+      required=False)
+
+  args = parser.parse_args()
+  # print help if no arguments given
+  if len(argv) <= 1:
+    pass
+    #parser.print_help()
+    #exit(1)
+
+  result = vars(args)
+
+  return(result)
 
 if __name__ == "__main__":
 
-  configpath = "config.ini"
-  configpath = "{}/{}".format(curScriptDir, configpath)
+  # get cli args
+  args = argCommandline(argv)
+
+  if not args['configpath']:
+    configpath = "{}/config.ini".format(curScriptDir)
+  else:
+    configpath = args['configpath']
 
   # calling signal handler
   signal.signal(signal.SIGINT, sigint_handler)
