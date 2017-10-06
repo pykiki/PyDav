@@ -44,7 +44,7 @@ class Test(TestCommand):
 
 config = {
     'name': 'PyDav',
-    'version': '1.0',
+    'version': '1.2',
     'description': 'CLI Webdav connector',
     'author': 'Maibach Alain',
     'author_email': 'alain.maibach@gmail.com',
