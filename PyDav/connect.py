@@ -142,7 +142,7 @@ def core(configpath):
       result = {'code':1, 'content':createRes['message']}
       return(result)
     msg = 'INFO: Default configuration done! Please edit {} before launching {} again.'.format(config, curScriptName)
-    result = {code:1, content:msg}
+    result = {'code':1, 'content':msg}
     return(result)
 
   # Get param from config file .ini
