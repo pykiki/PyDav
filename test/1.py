@@ -7,7 +7,7 @@ import signal
 import argparse
 from sys import argv
 try:
-  from PyDav import connect
+  from PyDav import tools
 except:
   print('Please Install PyDav library.')
   exit(1)
@@ -89,135 +89,134 @@ if __name__ == "__main__":
   # calling signal handler
   signal.signal(signal.SIGINT, sigint_handler)
 
-  webdavClient = connect.core(configpath)
-  if webdavClient['code'] != 0:
-    print(webdavClient['content'])
-    exit(1)
+  # connecting to webdav
+  webdavClient = tools.core(configpath)
+  connected = webdavClient.connect()
+  if connected['code'] != 0:
+    del(webdavClient)
+    exit(0)
 
-  # ici
-  del(webdavClient['content'])
-  exit(0)
+  # print local files destination
+  print( webdavClient.localPath )
+  
+  # print remote files destination
+  print( webdavClient.webdavShare )
+  
+  # change local files destination
+  #webdavClient.localPath = "toto"
+
+  # close connection
+  #del(webdavClient)
+  #exit(0)
 
   ############################
   # list target path content #
   ############################
-  remotefiles = pydav.list(share)
-  if 'code' in remotefiles:
-    pydav.sendlog(msg=remotefiles['reason'], level='warn')
-    del(pydav)
+  remotefiles = webdavClient.remote_list()
+  if remotefiles['code'] != 0:
+    del(webdavClient)
     exit(remotefiles['code'])
-
-  if len(remotefiles) > 0:
-    ########################
-    ## Downloading a file ##
-    ########################
-
-    # we will look for a matching expr
-    search = 'Music'
-    res_found = pydav.search(search)
-    if 'code' in res_found:
-      pydav.sendlog(msg=res_found['reason'], level='warn')
-    else:
-      for rfilename in res_found:
-        fileloc = "{0}/{1}".format(lpath, rfilename)
-        res = pydav.download(rfilename, fileloc)
-        if res['code'] == 1:
-         del(pydav)
-         exit(res['code'])
   else:
-    pydav.sendlog(msg="No remote files or directories found", level='warn')
+    remotefiles = remotefiles['content']
+  print(remotefiles)
 
-  # ici
-  del(webdavClient)
-  exit(0)
+  ###################################################################
+  # List a different target than default path defined in config.ini #
+  ###################################################################
+  #webdavClient.webdavShare = '{}/Medias'.format(webdavClient.webdavShare)
+  #remotefiles = webdavClient.remote_list()
+  #if remotefiles['code'] != 0:
+  #  del(webdavClient)
+  #  exit(remotefiles['code'])
+  #else:
+  #  remotefiles = remotefiles['content']
+  #print(remotefiles)
+
+  #if len(remotefiles) > 0:
+    #####################################
+    ## we will look for a matching expr #
+    #####################################
+    #word = 'Vrac'
+    #res_found =  webdavClient.remote_search(word)
+    #err = False
+  #  #if res_found['code'] == 0 :
+  #  #  for rfilename in res_found['content']:
+  #  #    fileloc = "{0}/{1}".format(webdavClient.localPath, rfilename)
+  #  #    ########################
+  #  #    ## Downloading a file ##
+  #  #    ########################
+  #  #    res = webdavClient.download(rfilename, fileloc)
+  #  #    if res['code'] == 1:
+  #  #      err = True
+  #  #  if err:
+  #  #    print("WARN: Some errors occured during download see logs for more informations.")
+  #else:
+  #  pydav.sendlog(msg="No remote files or directories found", level='warn')
 
   ######################
   ## Uploading a file ##
   ######################
-
-  lfile = '/home/amaibach/Downloads/pydav-datas/public/todo.txt'
-  lfilename = fpath.basename(lfile)
-  rfile = "{0}/{1}".format(share,lfilename)
-
-  res = pydav.upload(lfile, rfile)
+  resource = '/home/amaibach/Downloads/mp3/'
+  res = webdavClient.upload(resource)
   if res['code'] == 1:
-    pydav.sendlog(msg=res['reason'], level='warn')
-    del(pydav)
-    exit(res['code'])
+    del(webdavClient)
+    exit(1)
 
-  ################################
-  # list remote files .. again.. #
-  ################################
-  remotefiles = pydav.list(share)
-  if 'code' in remotefiles:
-    pydav.sendlog(msg=remotefiles['reason'], level='warn')
-    del(pydav)
-    exit(remotefiles['code'])
-  else:
-    pydav.sendlog(msg=remotefiles, level='info')
+  resource = '/home/amaibach/Downloads/class-example.py'
+  res = webdavClient.upload(resource)
+  if res['code'] == 1:
+    del(webdavClient)
+    exit(1)
 
   ##################
   ## Copying file ##
   ##################
-
-  file2cp = 'todo.txt'
-  dst = 'toto-1/zigzag/zizi/todo-copied.txt'
-
-  file2cp = "{0}/{1}".format(share, file2cp)
-  dst = "{0}/{1}".format(share, dst)
-  rescp = pydav.duplicate(file2cp, dst)
+  file2cp = 'mp3'
+  dst = 'toto-1/zigzag/zizi/mp3'
+  rescp = webdavClient.remote_duplicate(file2cp, dst)
   if rescp['code'] != 0:
-    pydav.sendlog(msg=rescp['reason'], level='warn')
-    del(pydav)
-    exit(rescp['code'])
+    del(webdavClient)
+    exit(1)
 
   ###################
   ##  Moving  file ##
   ###################
-
-  file2mv = 'toto-1/zigzag/zizi/todo-copied.txt'
-  dst = 'toto-2/zigzag/todo-moved.txt'
-
-  file2mv = "{0}/{1}".format(share, file2mv)
-  dst = "{0}/{1}".format(share, dst)
-  resmv = pydav.move(file2mv, dst)
+  file2mv = 'toto-1/zigzag/zizi/mp3'
+  dst = 'toto-2/zigzag/mp3'
+  resmv = webdavClient.remote_move(file2mv, dst)
   if resmv['code'] != 0:
-    pydav.sendlog(msg=rescp['reason'], level='warn')
-    del(pydav)
-    exit(rescp['code'])
+    del(webdavClient)
+    exit(1)
+
+  ########################
+  ## Downloading a file ##
+  ########################
+  file2dl = 'toto-2/zigzag/mp3'
+  remotefile = "{}/{}".format(webdavClient.webdavShare, file2dl)
+  localfile = "{0}/{1}".format(webdavClient.localPath, remotefile)
+  if webdavClient.download(remotefile, localfile)['code'] == 1:
+    del(webdavClient)
+    exit(1)
 
   ###################
   ## Removing file ##
   ###################
 
-  file2del= 'toto-1/'
-  resdel = pydav.delete("{0}/{1}".format(share, file2del))
-  if resdel['code'] != 0:
-    pydav.sendlog(msg=resdel['reason'], level='warn')
-    del(pydav)
-    exit(resdel['code'])
-  else:
-    # list files to check
-    remotefiles = pydav.list(share)
-    if 'code' in remotefiles:
-      pydav.sendlog(msg=remotefiles['reason'], level='warn')
-      del(pydav)
-      exit(remotefiles['code'])
-    else:
-      pydav.sendlog(msg=remotefiles, level='info')
+  err = False
+  file2del = ['toto-1/', 'toto-2/', 'mp3','class-example.py']
 
-  file2del= 'toto-2/'
-  resdel = pydav.delete("{0}/{1}".format(share, file2del))
-  if resdel['code'] != 0:
-    pydav.sendlog(msg=resdel['reason'], level='warn')
-    del(pydav)
-    exit(resdel['code'])
-  else:
-    # list files to check
-    remotefiles = pydav.list(share)
-    if 'code' in remotefiles:
-      pydav.sendlog(msg=remotefiles['reason'], level='warn')
-      del(pydav)
+  for f in file2del:
+    resdel = webdavClient.remote_remove(f)
+    if resdel['code'] != 0:
+      err = True
+
+  if not err:
+    remotefiles = webdavClient.remote_list()
+    if remotefiles['code'] != 0:
+      del(webdavClient)
       exit(remotefiles['code'])
     else:
-      pydav.sendlog(msg=remotefiles, level='info')
+      remotefiles = remotefiles['content']
+    print(remotefiles)
+  else:
+    print("WARN: Some errors occured during remove see logs for more informations.")

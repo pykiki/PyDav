@@ -1,3 +1,4 @@
-# documenter les fonctions et la classe
 # A valider aussi sous arm ...
+
+# documenter les fonctions et la classe
 # voir pour parralélliser ?

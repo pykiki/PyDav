@@ -496,10 +496,7 @@ class core():
     local_isdir = fpath.isdir(local)
 
     rfilename = fpath.basename(fpath.normpath(local))
-    if local_isdir:
-      rfiledst = "{}/{}".format(remote, rfilename)
-    else:
-      rfiledst = remote
+    rfiledst = "{}/{}".format(remote, rfilename)
     rfiledst = fpath.normpath(rfiledst)
 
     if not self.__client.check(rfiledst):
@@ -521,21 +518,21 @@ class core():
           recursed_local = fpath.normpath(recursed_local)
 
           if fpath.isdir(recursed_local):
-            recursed_remote = remote
+            recursed_remote = rfiledst
           else:
-            recursed_remote = "{}/{}".format(remote, file_)
+            recursed_remote = "{}/{}".format(rfiledst, file_)
           recursed_remote = fpath.normpath(recursed_remote)
 
           self.upload(recursed_local, recursed_remote)
       else:
         try:
-          self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
+          self.__client.upload(remote_path=rfiledst, local_path=local, progress=self.progress)
           # print console carriage return after progress bar
           #self.sendlog(dst='console', msg='')
           print('')
         except WebDavException as exception:
           if re.match('Remote parent for.* not found', str(exception)):
-            parentdir = fpath.dirname(fpath.abspath(remote))
+            parentdir = fpath.dirname(fpath.abspath(rfiledst))
             res = self.createdir(parentdir)
             if res['code'] == 1 :
               errmsg = "Unable to create remote parent directory {}.".format(parentdir)
@@ -547,7 +544,7 @@ class core():
               return(self.__error)
             else:
               try:
-                self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
+                self.__client.upload(remote_path=rfiledst, local_path=local, progress=self.progress)
                 # print console carriage return after progress bar
                 #self.sendlog(dst='console', msg='')
                 print('')
@@ -566,7 +563,7 @@ class core():
             self.__error = {'code':1,'reason':exception}
             return(self.__error)
 
-        remoteinfo = self.getinfo(remote)
+        remoteinfo = self.getinfo(rfiledst)
         if 'code' in remoteinfo:
           errstr = remoteinfo['reason']
           if self.__logtype == 'file':
@@ -580,9 +577,9 @@ class core():
         lfsize = self.file_size(local)
         if lfsize == int(remoteinfo['size']):
           if self.__logtype == 'file':
-            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg='File {0} uploaded correctly'.format(remote))
+            self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg='File {0} uploaded correctly'.format(rfiledst))
           else:
-            self.sendlog(dst=self.__logtype, msg='File {0} uploaded correctly'.format(remote))
+            self.sendlog(dst=self.__logtype, msg='File {0} uploaded correctly'.format(rfiledst))
 
           self.__error = {'code':0}
         else:
@@ -591,13 +588,13 @@ class core():
           else:
             self.sendlog(dst=self.__logtype, level="warn", msg='Upload failed: partially sent.')
 
-          self.delete(remote)
+          self.delete(rfiledst)
           self.__error = {'code':1,'reason':"Upload failed: partially sent."}
 
         return(self.__error)
 
       if local_isdir:
-        remoteflist = self.list_recurse(remote)
+        remoteflist = self.list_recurse(rfiledst)
         for f in remoteflist:
           finfo = self.getinfo(f)
           if 'code' in finfo:
@@ -637,8 +634,8 @@ class core():
 
           self.__error = {'code':1,'reason':msg}
     else:
-      if self.__client.is_dir(remote):
-        remoteflist = self.list_recurse(remote)
+      if self.__client.is_dir(rfiledst):
+        remoteflist = self.list_recurse(rfiledst)
 
         lclfiles =  self.list_files_ldir(local)
         for file_ in lclfiles:
@@ -679,24 +676,24 @@ class core():
               self.__error = {'code':0,'reason':errmsg}
       else:
         lfsize = self.file_size(local)
-        finfo = self.getinfo(remote)
+        finfo = self.getinfo(rfiledst)
         if 'code' in finfo:
           return(self.__error)
 
         if lfsize != int(finfo['size']):
-          msg = 'Remote file {} mismatch local file {} trying to update.'.format(remote, local)
+          msg = 'Remote file {} mismatch local file {} trying to update.'.format(rfiledst, local)
           if self.__logtype == 'file':
             self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=msg)
           else:
             self.sendlog(dst=self.__logtype, level="warn", msg=msg)
           try:
-            self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
+            self.__client.upload(remote_path=rfiledst, local_path=local, progress=self.progress)
             # print console carriage return after progress bar
             #self.sendlog(dst='console', msg='')
             print('')
           except WebDavException as exception:
             if re.match('Remote parent for.* not found', str(exception)):
-              parentdir = fpath.dirname(fpath.abspath(remote))
+              parentdir = fpath.dirname(fpath.abspath(rfiledst))
               res = self.createdir(parentdir)
               if res['code'] == 1 :
                 errmsg = "Unable to create remote parent directory {}.".format(parentdir)
@@ -708,7 +705,7 @@ class core():
                 return(self.__error)
               else:
                 try:
-                  self.__client.upload(remote_path=remote, local_path=local, progress=self.progress)
+                  self.__client.upload(remote_path=rfiledst, local_path=local, progress=self.progress)
                   # print console carriage return after progress bar
                   #self.sendlog(dst='console', msg='')
                   print('')
@@ -727,7 +724,7 @@ class core():
               self.__error = {'code':1,'reason':exception}
               return(self.__error)
 
-          remoteinfo = self.getinfo(remote)
+          remoteinfo = self.getinfo(rfiledst)
           if 'code' in remoteinfo:
             errstr = remoteinfo['reason']
             if self.__logtype == 'file':
@@ -741,9 +738,9 @@ class core():
           lfsize = self.file_size(local)
           if lfsize == int(remoteinfo['size']):
             if self.__logtype == 'file':
-              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg='File {0} uploaded correctly'.format(remote))
+              self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg='File {0} uploaded correctly'.format(rfiledst))
             else:
-              self.sendlog(dst=self.__logtype, msg='File {0} uploaded correctly'.format(remote))
+              self.sendlog(dst=self.__logtype, msg='File {0} uploaded correctly'.format(rfiledst))
 
             self.__error = {'code':0}
           else:
@@ -752,7 +749,7 @@ class core():
             else:
               self.sendlog(dst=self.__logtype, level="warn", msg='Upload failed: partially sent.')
 
-            self.delete(remote)
+            self.delete(rfiledst)
             self.__error = {'code':1,'reason':"Upload failed: partially sent."}
         else:
           errmsg = "File {0} already exists on remote, skipping upload.".format(local)
@@ -1107,8 +1104,6 @@ class core():
             self.sendlog(dst=self.__logtype, level="error", msg=errmsg)
           self.__error = {'code':1,'reason':errmsg}
           return(self.__error)
-
-  #pkidbDict = property(read_pkidb, None, None, "Get pki db in a dict")
 
 if __name__ == "__main__":
   """

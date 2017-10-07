@@ -18,6 +18,7 @@ wp-content/plugins/hello.php
 
 /miscs/
 /test/config.ini
+/test/config-*
 /PyDav.egg-info/
 /build/
 /dist/

@@ -13,7 +13,7 @@ webdav_root = /
 share = /synced
 
 [logging]
-# logging information
-logdst = console # other values: syslog | file
+# other values: syslog | file
+logdst = console 
 logfilepath = /var/log/
 
