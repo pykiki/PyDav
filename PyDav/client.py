@@ -471,7 +471,7 @@ class core():
 
     return(self.__error)
 
-  def upload(self, local, remote): 
+  def upload(self, local, remote, recurse=False):
     '''
      Uploading file to Webdav
     '''
@@ -496,7 +496,14 @@ class core():
     local_isdir = fpath.isdir(local)
 
     rfilename = fpath.basename(fpath.normpath(local))
-    rfiledst = "{}/{}".format(remote, rfilename)
+    if local_isdir:
+      rfiledst = "{}/{}".format(remote, rfilename)
+    else:
+      if not recurse:
+        rfiledst = "{}/{}".format(remote, rfilename)
+      else:
+        rfiledst = str(remote)
+
     rfiledst = fpath.normpath(rfiledst)
 
     if not self.__client.check(rfiledst):
@@ -523,7 +530,7 @@ class core():
             recursed_remote = "{}/{}".format(rfiledst, file_)
           recursed_remote = fpath.normpath(recursed_remote)
 
-          self.upload(recursed_local, recursed_remote)
+          self.upload(local=recursed_local, remote=recursed_remote, recurse=True)
       else:
         try:
           self.__client.upload(remote_path=rfiledst, local_path=local, progress=self.progress)
@@ -594,6 +601,12 @@ class core():
         return(self.__error)
 
       if local_isdir:
+        info = "Checking directory {} overall upload state...".format(rfiledst)
+        if self.__logtype == 'file':
+          self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=info)
+        else:
+          self.sendlog(dst=self.__logtype, msg=info)
+
         remoteflist = self.list_recurse(rfiledst)
         for f in remoteflist:
           finfo = self.getinfo(f)
@@ -647,7 +660,7 @@ class core():
           rpath = fpath.normpath(rpath)
 
           if rpath not in remoteflist:
-            self.upload(file_, rpath)
+            self.upload(local=file_, remote=rpath, recurse=True)
           else:
             lfsize = self.file_size(file_)
             finfo = self.getinfo(rpath)
@@ -660,7 +673,7 @@ class core():
                 self.sendlog(logfpath=self.__logfile, dst=self.__logtype, level="warn", msg=msg)
               else:
                 self.sendlog(dst=self.__logtype, level="warn", msg=msg)
-              upres = self.upload(file_, rpath)
+              upres = self.upload(local=file_, remote=rpath, recurse=True)
               if upres['code'] == 1:
                 msg = 'Upload failed for {}, partially sent.'.format(file_)
                 if self.__logtype == 'file':
