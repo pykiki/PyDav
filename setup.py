@@ -7,9 +7,8 @@ import sys
 from setuptools.command.test import test as TestCommand
 from setuptools.command.install import install as InstallCommand
 
-version = "0.1"
-requirements = "libxml2-dev libxslt-dev python-dev"
-
+version = "1.3"
+requirements = "libxml2-dev libxslt-dev python-dev libcurl-openssl-dev"
 
 class Install(InstallCommand):
 
@@ -44,7 +43,7 @@ class Test(TestCommand):
 
 config = {
     'name': 'PyDav',
-    'version': '1.2',
+    'version': str(version),
     'description': 'CLI Webdav connector',
     'author': 'Maibach Alain',
     'author_email': 'alain.maibach@gmail.com',
@@ -52,6 +51,7 @@ config = {
     'url': 'https://github.com/pykiki',
     'download_url': 'https://github.com/pykiki/PyDav',
     'packages': ['PyDav'],
+    'scripts': ['scripts/pydav-client'],
     'license': 'GNU GPLv3',
     'install_requires': [
         'argcomplete',
@@ -63,14 +63,18 @@ config = {
         'Linux',
         'OSX'],
     'zip_safe': False,
+    'keywords': 'webdav, client, python, module, library, packet, nextcloud',
     'classifiers': [
         'Development Status :: 2 - Pre-Alpha',
         'Environment :: Web Environment',
+        'Environment :: Console',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Topic :: Internet',
+        'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Utilities']}
 
 setup(**config)

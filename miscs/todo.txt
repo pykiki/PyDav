@@ -1,4 +1,8 @@
-# A valider aussi sous arm ...
+# commenter les methodes et classes
 
-# documenter les fonctions et la classe
+# Finir le scripts/pydav-client
+  ajout des option passer en fonction
+  appel des fonction suivant les options
+
+# A valider aussi sous arm ...
 # voir pour parralélliser ?
