@@ -15,10 +15,10 @@ except:
   exit(1)
 
 __author__ = "Alain Maibach"
-__status__ = "Beta tests"
+__status__ = "Released"
 
 '''
-    Python3 PyDav test #1
+    PyDav tools class which interact with the PyDav main class
     Copyright (C) 2017 MAIBACH ALAIN
 
     This program is free software: you can redistribute it and/or modify
@@ -54,7 +54,6 @@ class core():
     self.__error = {'code':0, 'reason':''}
     self.__config = fpath.normpath(configpath)
 
-    # Creating default setup if it does not exists
     if not fpath.exists(self.__config):
       createRes = self.createConf()
       if createRes['error']:
@@ -64,7 +63,6 @@ class core():
         print('INFO: Default configuration done! Please edit {} before going further.'.format(self.__config))
         exit(1)
 
-    # calling signal handler
     signal.signal(signal.SIGINT, self.sigint_handler)
 
   def __del__(self):
@@ -78,7 +76,6 @@ class core():
  
     print("Execution interrupted by pressing [CTRL+C]")
 
-    # Do something more here during cancel action.
     if hasattr(self, '_core__webdavClient'):
       del(self.__webdavClient)
     exit(1)
@@ -94,8 +91,6 @@ class core():
     config = configparser.ConfigParser(
       delimiters='=', comment_prefixes='#')
 
-    # No needs to create DEFAULT section
-    #config.add_section('DEFAULT')
     config.set('DEFAULT', 'localpath', fpath.normpath('{}/pydav-datas'.format(self.__curConfigDir)))
     config.set('DEFAULT', 'debug', 'False')
 
@@ -173,7 +168,6 @@ class core():
     return: webdav client connection object
     '''
 
-    # Get param from config file .ini
     configinfos = configparser.ConfigParser()
     try:
       configinfos.read(self.__config)
@@ -243,10 +237,8 @@ class core():
             result = {'code':1, 'content':msg}
             return(result)
 
-    # init webdav
     self.__webdavClient = client.core(host=self.__webdavHost, login=self.__wedavLogin, passwd=self.__wedavPass, root=self.__webdavRoot, logtype=self.__logType, logfile=self.__logDst, verbosity=self.__mainVerbosity)
 
-    # connection to webdav server
     connected = self.__webdavClient.connect()
     if connected['code'] == 1:
       self.__webdavClient.sendlog(msg=connected['reason'], level='warn')
@@ -254,7 +246,6 @@ class core():
       result = {'code':connected['code'], 'content':connected['reason']}
       return(result)
 
-    # checking target path exists
     res = self.__webdavClient.check(self.__webdavShare)
     if res['code'] == 1:
       self.__webdavClient.sendlog(msg=res['reason'], level='warn')
@@ -333,10 +324,6 @@ class core():
       result = {'code':0, 'content':''}
     return(result)
 
-  '''
-   Properties section: https://infohost.nmt.edu/tcc/help/pubs/python/web/property-function.html
-  '''
-
   def get_localPath(self):
     if hasattr(self, '_core__localPath'):
       return(self.__localPath)
@@ -357,11 +344,3 @@ class core():
 
 if __name__ == "__main__":
   pass
-
-  '''
-  core("./config.ini")
-  connected = webdavClient.connect()
-  if connected['code'] != 0:
-    del(webdavClient)
-    exit(0)
-  '''

@@ -11,26 +11,17 @@ try:
   import webdav.client as wc
 except:
   packages = "argcomplete>=1.9.2, lxml>=3.8.0, pycurl>=7.43.0, webdavclient>=1.0.8"
-#  packages = ""
-#  with open("../requirements.txt", "rb") as requirements:
-#    req_tab = requirements.read().splitlines()
-#    for indice, line in enumerate(req_tab):
-#      if indice == 0 :
-#        packages = "{0}".format(line.decode('utf-8'))
-#      else:
-#        packages = "{0}, {1}".format(packages, line.decode('utf-8'))
-#
   print('Please install python libraries: {0}'.format(packages))
   exit(1)
 else:
   from webdav.client import WebDavException
 
 __author__ = "Alain Maibach"
-__status__ = "Beta"
+__status__ = "Released"
 
 '''
-    Python3 skel helper
-    Copyright (C) 2016 MAIBACH ALAIN
+    PyDav main class which directly interact with webdavclient python library
+    Copyright (C) 2017 MAIBACH ALAIN
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -54,23 +45,9 @@ __status__ = "Beta"
   https://journeyman-to-zen.blogspot.fr/2014/04/how-to-use-pycurl-to-provide-status-bar.html
 '''
 
-# check python version
-'''
-if( sys.version_info.major != 3 ):
-    print("This script requires Python 3")
-    exit(1)
-elif( sys.version_info.minor < 4 ):
-    print("This script requires Python >= 3.4")
-    exit(1)
-elif( sys.version_info.micro < 1 ):
-    print("This script requires Python >= 3.4.1")
-'''
-# Fin check
-
 python3 = sys.version_info.major == 3
 
 curScriptDir = fpath.dirname(fpath.abspath(__file__))
-#parentScriptDir = fpath.dirname(fpath.dirname(fpath.abspath(__file__)))
 curScriptName = fpath.splitext(fpath.basename(__file__))[0]
 
 class core():
@@ -141,7 +118,6 @@ class core():
       'verbose'    : verbosity
     }
 
-    # calling signal handler
     signal.signal(signal.SIGINT, self.sigint_handler)
 
   def __del__(self):
@@ -156,8 +132,6 @@ class core():
       self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg="Execution interrupted by pressing [CTRL+C]")
     else:
       self.sendlog(msg="Execution interrupted by pressing [CTRL+C]", dst=self.__logtype)
-
-    # Do something more here during cancel action.
     exit(0)
 
   def progress(self, total_to_download, total_downloaded, total_to_upload, total_uploaded):
@@ -167,21 +141,21 @@ class core():
     '''
 
     if total_to_upload:
-      percent_completed = float(total_uploaded)/total_to_upload       # You are calculating amount uploaded
-      rate = round(percent_completed * 100, ndigits=2)                # Convert the completed fraction to percentage
-      completed = "#" * int(rate)                                     # Calculate completed percentage
-      spaces = " " * ( 100 - int(rate) )                              # Calculate remaining completed rate
+      percent_completed = float(total_uploaded)/total_to_upload
+      rate = round(percent_completed * 100, ndigits=2)
+      completed = "#" * int(rate)
+      spaces = " " * ( 100 - int(rate) )
       status = '[%s%s] %s%%' %(completed, spaces, rate)
-      sys.stdout.write('\r' + str(status))                            # the pretty progress [####     ] 34%
+      sys.stdout.write('\r' + str(status))
       sys.stdout.flush()
 
     if total_to_download:
-      percent_completed = float(total_downloaded)/total_to_download   # You are calculating amount uploaded
-      rate = round(percent_completed * 100, ndigits=2)                # Convert the completed fraction to percentage
-      completed = "#" * int(rate)                                     # Calculate completed percentage
-      spaces = " " * ( 100 - int(rate) )                              # Calculate remaining completed rate
+      percent_completed = float(total_downloaded)/total_to_download
+      rate = round(percent_completed * 100, ndigits=2)
+      completed = "#" * int(rate)
+      spaces = " " * ( 100 - int(rate) )
       status = '[%s%s] %s%%' %(completed, spaces, rate)
-      sys.stdout.write('\r' + str(status))                            # the pretty progress [####     ] 34%
+      sys.stdout.write('\r' + str(status))
       sys.stdout.flush()
 
   def file_size(self, fname):
@@ -213,11 +187,8 @@ class core():
     message = str(msg)
     loglvl = str(level)
 
-    # create logger
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
-
-    # create formatter
     formatter = logging.Formatter('%(asctime)s - [{0} %(processName)s] %(levelname)s: %(message)s'.format(curScriptName))
 
     if str(dst) == 'syslog':
@@ -226,18 +197,15 @@ class core():
       formatter = logging.Formatter('[{0} %(processName)s] %(levelname)s: %(message)s'.format(curScriptName))
       handler.setFormatter(formatter)
     elif str(dst) == 'file':
-      # create file handler
       if not logfpath:
         handler = logging.handlers.WatchedFileHandler(r'{0}/pyWebdav.log'.format(curScriptDir))
       else:
         handler = logging.handlers.WatchedFileHandler(r'{0}'.format(logfpath))
       handler.setFormatter(formatter)
     else:
-      # create console handler
       handler = logging.StreamHandler()
       handler.setFormatter(formatter)
 
-    # send log
     logger.addHandler(handler)
     if loglvl == 'DEBUG' or loglvl == 'debug':
       logger.debug(message)
@@ -464,7 +432,6 @@ class core():
           self.sendlog(dst=self.__logtype, level="warn", msg='Download failed: partially retrieved.')
 
         fremove(local)
-        #self.__error = {'code':1,'reason':"Unable to find {0}".format(target)}
         self.__error = {'code':1,'reason':"Download failed: partially retrieved."}
 
       return(self.__error)
@@ -1035,7 +1002,6 @@ class core():
         if self.__client.is_dir(currfile):
           found = self.search(target, currfile, found)
 
-      # Ensure there is no duplicates in list found
       uniqueList=[]
       for i in found:
         if i not in uniqueList:
@@ -1074,7 +1040,6 @@ class core():
 
         found.append( "{0}/{1}".format(currdir,f) )
 
-      # Ensure there is no duplicates in list found
       uniqueList=[]
       for i in found:
         if i not in uniqueList:
@@ -1123,149 +1088,3 @@ if __name__ == "__main__":
   Main part used if self-executed
   """
   pass
-
-  '''
-  #####################
-  # USE CASE EXAMPLES #
-  #####################
-
-  # Webdav global informations part
-  rhost = ''
-  rlogin = ''
-  rpass = ''
-  webdav_root = ''
-  
-  # Webdav target path
-  share = ''
-  
-  # local download filesystem path
-  lpath = ''
-
-  # logging information
-  logdst = "console" # other values: syslog | file
-  logfilepath = '/var/log/{0}.log'.format(curScriptName)
-
-  # init webdav
-  pydav = core(host=rhost, login=rlogin, passwd=rpass, root=webdav_root, logtype=logdst, logfile=logfilepath, verbosity=False)
-
-  # connection to webdav server
-  connected = pydav.connect()
-  if connected['code'] == 1:
-    pydav.sendlog(msg=connected['reason'], level='warn')
-    del(pydav)
-    exit(connected['code'])
-
-  # checking target path exists
-  res = pydav.check(share)
-  if res['code'] == 1:
-    pydav.sendlog(msg=res['reason'], level='warn')
-    del(pydav)
-    exit(res['code'])
-
-  if lpath[-1] == "/" :
-    lpath = lapath[:-1]
-
-  ############################
-  # list target path content #
-  ############################
-  remotefiles = pydav.list(share)
-  if 'code' in remotefiles:
-    pydav.sendlog(msg=remotefiles['reason'], level='warn')
-    del(pydav)
-    exit(remotefiles['code'])
-
-  if len(remotefiles) > 0:
-    ########################
-    ## Downloading a file ##
-    ########################
-
-    # we will look for a matching expr
-    search = 'Music'
-    res_found = pydav.search(search)
-    if 'code' in res_found:
-      pydav.sendlog(msg=res_found['reason'], level='warn')
-    else:
-      for rfilename in res_found:
-        fileloc = "{0}/{1}".format(lpath, rfilename)
-        res = pydav.download(rfilename, fileloc)
-        if res['code'] == 1:
-         del(pydav)
-         exit(res['code'])
-  else:
-    pydav.sendlog(msg="No remote files or directories found", level='warn')
-
-  ######################
-  ## Uploading a file ##
-  ######################
-
-  lfile = ''
-  lfilename = fpath.basename(lfile)
-  rfile = "{0}/{1}".format(share,lfilename)
-
-  res = pydav.upload(lfile, rfile)
-  if res['code'] == 1:
-    pydav.sendlog(msg=res['reason'], level='warn')
-    del(pydav)
-    exit(res['code'])
-
-  ################################
-  # list remote files .. again.. #
-  ################################
-  remotefiles = pydav.list(share)
-  if 'code' in remotefiles:
-    pydav.sendlog(msg=remotefiles['reason'], level='warn')
-    del(pydav)
-    exit(remotefiles['code'])
-  else:
-    pydav.sendlog(msg=remotefiles, level='info')
-
-  ###################
-  ## Removing file ##
-  ###################
-
-  file2del = ''
-  resdel = pydav.delete("{0}/{1}".format(share, file2del))
-  if resdel['code'] != 0:
-    pydav.sendlog(msg=resdel['reason'], level='warn')
-    del(pydav)
-    exit(resdel['code'])
-  else:
-    # list files to check
-    remotefiles = pydav.list(share)
-    if 'code' in remotefiles:
-      pydav.sendlog(msg=remotefiles['reason'], level='warn')
-      del(pydav)
-      exit(remotefiles['code'])
-    else:
-      pydav.sendlog(msg=remotefiles, level='info')
-
-  ##################
-  ## Copying file ##
-  ##################
-
-  file2cp = ''
-  dst = ''
-
-  file2cp = "{0}/{1}".format(share, file2cp)
-  dst = "{0}/{1}".format(share, dst)
-  rescp = pydav.duplicate(file2cp, dst)
-  if rescp['code'] != 0:
-    pydav.sendlog(msg=rescp['reason'], level='warn')
-    del(pydav)
-    exit(rescp['code'])
-
-  ###################
-  ##  Moving  file ##
-  ###################
-
-  file2mv = ''
-  dst = ''
-
-  file2mv = "{0}/{1}".format(share, file2mv)
-  dst = "{0}/{1}".format(share, dst)
-  resmv = pydav.move(file2mv, dst)
-  if resmv['code'] != 0:
-    pydav.sendlog(msg=rescp['reason'], level='warn')
-    del(pydav)
-    exit(rescp['code'])
-  '''

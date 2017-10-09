@@ -13,7 +13,7 @@ except:
   exit(1)
 
 __author__ = "Alain Maibach"
-__status__ = "Beta tests"
+__status__ = "Tests purpose only"
 
 '''
     Python3 PyDav test #1
@@ -38,7 +38,6 @@ __status__ = "Beta tests"
 python3 = version_info.major == 3
 
 curScriptDir = fpath.dirname(fpath.abspath(__file__))
-#parentScriptDir = fpath.dirname(fpath.dirname(fpath.abspath(__file__)))
 curScriptName = fpath.splitext(fpath.basename(__file__))[0]
 
 def sigint_handler(signum, frame):
@@ -66,18 +65,13 @@ def argCommandline(argv):
       required=False)
 
   args = parser.parse_args()
-  # print help if no arguments given
   if len(argv) <= 1:
     pass
-    #parser.print_help()
-    #exit(1)
 
   result = vars(args)
-
   return(result)
 
 if __name__ == "__main__":
-
   # get cli args
   args = argCommandline(argv)
 

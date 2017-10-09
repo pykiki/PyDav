@@ -13,10 +13,10 @@ except:
   exit(1)
 
 __author__ = "Alain Maibach"
-__status__ = "Beta tests"
+__status__ = "Building"
 
 '''
-    Python3 PyDav test #1
+    Python3 PyDav client script 
     Copyright (C) 2017 MAIBACH ALAIN
 
     This program is free software: you can redistribute it and/or modify

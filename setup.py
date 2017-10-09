@@ -11,9 +11,10 @@ version = "1.3"
 requirements = "libxml2-dev libxslt-dev python-dev libcurl-openssl-dev"
 
 class Install(InstallCommand):
+    '''
+    '''
 
     def run(self):
-
         #params = "{install_params} {requirements}".format(install_params="install", requirements=requirements)
         #cmd = "{command} {params}".format(command="apt-get", params=params)
         #proc = subprocess.Popen(cmd, shell=True)
@@ -21,6 +22,8 @@ class Install(InstallCommand):
         InstallCommand.run(self)
 
 class Test(TestCommand):
+    '''
+    '''
 
     user_options = [('pytest-args=', 'a', "")]
 

@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 
 __author__ = "Alain Maibach"
-__status__ = "Beta tests"
+__status__ = "Released"
 
 '''
     PyDav - CLI Webdav connector

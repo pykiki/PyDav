@@ -91,7 +91,7 @@ EOF
 ```
 
 <p>
-Now that you have a set up your config file, you can call webdav tools.
+Now that you have set up your config file, you can call webdav tools.
 </p>
 
 ```python
@@ -181,7 +181,7 @@ Use the **remote_list()** method and play with returned content
 
 <p>
 You can look for a **word** in your webdav and the **remote_search(matchword=str)** method will return
-any files path which contains it.
+any files path matching found.
 </p>
 
 ```python
