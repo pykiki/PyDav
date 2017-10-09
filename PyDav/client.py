@@ -54,7 +54,35 @@ curScriptName = fpath.splitext(fpath.basename(__file__))[0]
 
 class core():
     '''
-    Main class to instanciate
+     Main class which will allow
+     to interact with webdavclient library
+
+     :param host: Webdav host:port part of URI
+     :type  host: string
+
+     :param login: Webdav user login
+     :type  login: string
+
+     :param passwd: Webdav user password
+     :type  passwd: string
+
+     :param root: Webdav root
+     :type  root: string
+
+     :param   logtype: Logging destination (console|syslog|file)
+     :type    logtype: string
+     :default logtype: 'console'
+
+     :param   logfile: Logging file path if logtype is file
+     :type    logfile: string
+     :default logfile: False
+
+     :param   verbosity: General debug mode (not really used)
+     :type    verbosity: boolean
+     :default verbosity: False
+
+     :returns: webdavclient library object
+     :rtype: obj
     '''
 
     def __init__(
@@ -68,9 +96,7 @@ class core():
         verbosity=False
     ):
         '''
-        Init and connect to webdav.
-        :param xxx: desc.
-        :type xxx: Boolean.
+         Init class
         '''
 
         self.__error = {'code': 0, 'reason': ''}
@@ -142,7 +168,7 @@ class core():
 
     def sigint_handler(self, signum, frame):
         '''
-        Class sig handler for ctrl+c interrupt
+         Class sig handler for ctrl+c interrupt
         '''
 
         if self.__logtype == 'file':
@@ -154,6 +180,7 @@ class core():
             self.sendlog(
                 msg="Execution interrupted by pressing [CTRL+C]",
                 dst=self.__logtype)
+        # Do something
         exit(0)
 
     def progress(
@@ -187,6 +214,12 @@ class core():
 
     def file_size(self, fname):
         '''
+         Method that return the size of a file
+         :param fname: filesystem file path
+         :type  fname: string
+
+         :returns: file size in bytes
+         :rtype: int
         '''
         if self.__error['code'] == 1:
             return(self.__error)
@@ -197,8 +230,22 @@ class core():
 
     def sendlog(self, msg, level='INFO', dst=False, logfpath=False):
         '''
-        Allow to send log easily to a stream of your choice
-        Use: your message, level of the message (info, warn, debug etc..), destination stream (console, file or syslog)
+         Allow to send log easily to a stream of your choice
+
+         :param msg: logging message to send
+         :type  msg: string
+
+         :param level: logging facility level
+         :type  level: string
+
+         :param dst: logging destination (console|syslog|file)
+         :type  dst: string
+
+         :param logfpath: If dst is file, allow you to specify the file path
+         :type  logfpath: string
+
+         :returns: In case of failure only, it will returns error 'code' and 'reason'
+         :rtype: dict
         '''
 
         if self.__error['code'] == 1:
@@ -252,6 +299,9 @@ class core():
     def connect(self):
         '''
          function to connect to webdav
+
+         :returns: In case of failure only, it will returns error 'code' and 'reason'
+         :rtype: dict
         '''
         if self.__error['code'] == 1:
             return(self.__error)
@@ -292,7 +342,13 @@ class core():
 
     def check(self, target):
         '''
-         Check target exists on remote webdav server
+         Check if target exists on remote Webdav server
+
+         :param target: Webdav target path
+         :type  target: string
+
+         :returns: It will returns result 'code' (and 'reason' if it fails)
+         :rtype: dict
         '''
         if self.__error['code'] == 1:
             return(self.__error)
@@ -334,6 +390,15 @@ class core():
     def list(self, target):
         '''
          List share content
+
+         :param target: Webdav target path
+         :type  target: string
+
+         :returns: It will returns result 'code' and 'reason' if it fails
+         :rtype: dict
+
+         :returns: It will returns list of files found
+         :rtype: list
         '''
         if self.__error['code'] == 1:
             return(self.__error)
@@ -357,6 +422,15 @@ class core():
     def getinfo(self, target):
         '''
          Get infos about file
+
+         :param target: Webdav target path
+         :type  target: string
+
+         :returns: It will returns result 'code' and 'reason' if it fails
+         :rtype: dict
+
+         :returns: dict of remote file informations
+         :rtype: dict
         '''
         if self.__error['code'] == 1:
             return(self.__error)
@@ -380,6 +454,15 @@ class core():
     def download(self, remote, local):
         '''
          Downloading file from webdav
+
+         :param remote: Webdav remote file path to get
+         :type  remote: string
+
+         :param local: local filesystem path where to put downloaded datas
+         :type  local: string
+
+         :returns: It will returns result 'code' and 'reason'
+         :rtype: dict
         '''
         if self.__error['code'] == 1:
             return(self.__error)
@@ -554,7 +637,20 @@ class core():
     def upload(self, local, remote, recurse=False):
         '''
          Uploading file to Webdav
+
+         :param local: local resource's filesystem path to upload
+         :type  local: string
+
+         :param remote: Webdav remote file path where to put the file
+         :type  remote: string
+
+         :param recurse: Internal use only
+         :type  recurse: boolean
+
+         :returns: It will returns result 'code' and 'reason'
+         :rtype: dict
         '''
+
         if self.__error['code'] == 1:
             return(self.__error)
 
@@ -992,7 +1088,13 @@ class core():
 
     def createdir(self, target):
         '''
-         Create directory
+         Create directory on Webdav
+
+         :param target: Webdav target path
+         :type  target: string
+
+         :returns: It will returns result 'code' and 'reason'
+         :rtype: dict
         '''
         if self.__error['code'] == 1:
             return(self.__error)
@@ -1072,8 +1174,15 @@ class core():
 
     def delete(self, target):
         '''
-         Delete resource
+         Delete resource on Webdav
+
+         :param target: Webdav target path
+         :type  target: string
+
+         :returns: It will returns result 'code' and 'reason'
+         :rtype: dict
         '''
+
         if self.__error['code'] == 1:
             return(self.__error)
 
@@ -1111,8 +1220,18 @@ class core():
 
     def duplicate(self, target, twin):
         '''
-         Copy resource
+         Duplicate a resource on Webdav
+
+         :param target: Webdav source target path
+         :type  target: string
+
+         :param twin: Webdav destination target path
+         :type  twin: string
+
+         :returns: It will returns result 'code' and 'reason'
+         :rtype: dict
         '''
+
         if self.__error['code'] == 1:
             return(self.__error)
 
@@ -1209,8 +1328,18 @@ class core():
 
     def move(self, target, new):
         '''
-         Move resource
+         Move a resource on Webdav
+
+         :param target: Webdav source target path
+         :type  target: string
+
+         :param new: Webdav destination target path
+         :type  new: string
+
+         :returns: It will returns result 'code' and 'reason'
+         :rtype: dict
         '''
+
         if self.__error['code'] == 1:
             return(self.__error)
 
@@ -1307,7 +1436,23 @@ class core():
 
     def search(self, target, path=False, found=False):
         '''
-         Search for file or directory recursively
+         Search for file or directory recursively on Webdav
+
+         :param target: Searching word
+         :type  target: string
+
+         :param   path: Webdav path where looking for target
+         :type    path: string
+         :default path: False
+
+         :param found: internal use only
+         :type  found: boolean
+
+         :returns: It will returns result 'code' and 'reason' if it fails
+         :rtype: dict
+
+         :returns: list of file paths which contains target
+         :rtype: list
         '''
 
         if not found:
@@ -1348,7 +1493,19 @@ class core():
 
     def list_recurse(self, path, found=False):
         '''
-         List path recursively
+         List Webdav path recursively
+
+         :param path: Webdav path to list files
+         :type  path: string
+
+         :param found: internal use only
+         :type  found: boolean
+
+         :returns: It will returns result 'code' and 'reason' if it fails
+         :rtype: dict
+
+         :returns: list of file paths which contains target
+         :rtype: list
         '''
 
         if not found:
@@ -1386,7 +1543,16 @@ class core():
 
     def list_files_ldir(self, directory_path, pattern="*"):
         '''
-          Pattern can be used to look for specific files like .mp3 etc.
+         Pattern can be used to look for specific files like .mp3 etc.
+
+         :param directory_path: local filesystem directory path
+         :type  directory_path: string
+
+         :param pattern: pattern filter to use for the search
+         :type  pattern: string
+
+         :returns: list of absolute file paths found
+         :rtype: list
         '''
 
         files = []
@@ -1397,6 +1563,15 @@ class core():
         return(files)
 
     def make_local_dirs(self, directory):
+        '''
+         Creates local filsystem directories recursively
+
+         :param directory: local filesystem directory path
+         :type  directory: string
+
+         :returns: It will returns result 'code' and 'reason'
+         :rtype: dict
+        '''
         if not fpath.exists(directory):
             try:
                 makedirs(directory, 0o750)

@@ -1,5 +1,3 @@
-# commenter les methodes et classes
-
 # Finir le scripts/pydav-client
   ajout des option passer en fonction
   appel des fonction suivant les options

@@ -40,14 +40,18 @@ __status__ = "Released"
 
 class core():
     '''
-    Main class to instanciate
+     Main class which will simplify the use of PyDav main class
+
+     :param configpath: filesystem path to webdav client config.ini file.
+     :type  configpath: string
+
+     :returns: PyDav library object
+     :rtype: obj
     '''
 
     def __init__(self, configpath):
         '''
-        Init and connect to webdav.
-        :param configpath: filesystem path to webdav client config.ini file.
-        :type configpath: String.
+         Init PyDav class with config file
         '''
 
         self.__curConfigDir = fpath.dirname(fpath.abspath(configpath))
@@ -171,7 +175,8 @@ class core():
         '''
          Allow to easily connect to webdav using config file parser
 
-        return: webdav client connection object
+         :returns: it will returns result 'code' and 'content'
+         :rtype: dict
         '''
 
         configinfos = configparser.ConfigParser()
@@ -284,6 +289,12 @@ class core():
         return(result)
 
     def remote_list(self):
+        '''
+         List all files of the configuration file defined Webdav share
+
+         :returns: it will returns result 'code' and 'content'
+         :rtype: dict
+        '''
         remotefiles = self.__webdavClient.list(self.__webdavShare)
         if 'code' in remotefiles:
             self.__webdavClient.sendlog(
@@ -297,6 +308,18 @@ class core():
         return(result)
 
     def remote_search(self, matchword):
+        '''
+         Search for files recursively on configuration file defined Webdav share path
+
+         :param matchword: Searching word
+         :type  matchword: string
+
+         :returns: It will returns result 'code' and 'content' if it fails
+         :rtype: dict
+
+         :returns: list of file paths which contains matchword
+         :rtype: list
+        '''
         res_found = self.__webdavClient.search(matchword)
         if 'code' in res_found:
             self.__webdavClient.sendlog(msg=res_found['reason'], level='warn')
@@ -308,6 +331,19 @@ class core():
         return(result)
 
     def download(self, remote, local):
+        '''
+         Downloading file from webdav
+
+         :param remote: Webdav remote file path to get
+         :type  remote: string
+
+         :param local: local filesystem path where to put downloaded datas
+         :type  local: string
+
+         :returns: It will returns result 'code' and 'content'
+         :rtype: dict
+        '''
+
         res = self.__webdavClient.download(remote, local)
         if res['code'] == 1:
             result = {'code': res['code'], 'content': res['reason']}
@@ -316,6 +352,16 @@ class core():
         return(result)
 
     def upload(self, local):
+        '''
+         Uploading file onto configuration file defined Webdav share path
+
+         :param local: local resource's filesystem path to upload
+         :type  local: string
+
+         :returns: It will returns result 'code' and 'content'
+         :rtype: dict
+        '''
+
         res = self.__webdavClient.upload(local, self.__webdavShare)
         if res['code'] == 1:
             self.__webdavClient.sendlog(msg=res['reason'], level='warn')
@@ -325,6 +371,20 @@ class core():
         return(result)
 
     def remote_duplicate(self, src, dst):
+        '''
+         Duplicate a resource on Webdav where root is the
+         configuration file defined Webdav share path.
+
+         :param src: Webdav source target path
+         :type  src: string
+
+         :param dst: Webdav destination target path
+         :type  dst: string
+
+         :returns: It will returns result 'code' and 'content'
+         :rtype: dict
+        '''
+
         res2cp = "{0}/{1}".format(self.__webdavShare, src)
         dest = "{0}/{1}".format(self.__webdavShare, dst)
         rescp = self.__webdavClient.duplicate(res2cp, dest)
@@ -336,6 +396,20 @@ class core():
         return(result)
 
     def remote_move(self, src, dst):
+        '''
+         Move a resource on Webdav where root is the
+         configuration file defined Webdav share path.
+
+         :param src: Webdav source target path
+         :type  src: string
+
+         :param dst: Webdav destination target path
+         :type  dst: string
+
+         :returns: It will returns result 'code' and 'content'
+         :rtype: dict
+        '''
+
         res2mv = "{0}/{1}".format(self.__webdavShare, src)
         dest = "{0}/{1}".format(self.__webdavShare, dst)
         resmv = self.__webdavClient.move(res2mv, dest)
@@ -347,6 +421,17 @@ class core():
         return(result)
 
     def remote_remove(self, resource):
+        '''
+         Delete resource on Webdav where root is the
+         configuration file defined Webdav share path.
+
+         :param resource: Webdav target path
+         :type  resource: string
+
+         :returns: It will returns result 'code' and 'content'
+         :rtype: dict
+        '''
+
         res2rm = "{0}/{1}".format(self.__webdavShare, resource)
         resrm = self.__webdavClient.delete(res2rm)
         if resrm['code'] != 0:
@@ -357,13 +442,31 @@ class core():
         return(result)
 
     def get_localPath(self):
+        '''
+         Method that will give read access to localPath var
+
+         :returns: It will returns config defined local path
+         :rtype: string
+        '''
+
         if hasattr(self, '_core__localPath'):
             return(self.__localPath)
         else:
             return(False)
 
     def set_localPath(self, path):
+        '''
+         Method that will give write access to localPath var
+
+         :param path: Local path to set for the runnning class instance
+         :type  path: string
+
+         :returns: None
+         :rtype: None
+        '''
+
         self.__localPath = path
+
     localPath = property(
         get_localPath,
         set_localPath,
@@ -371,13 +474,31 @@ class core():
         "Allow to interact with local path value")
 
     def get_webdavShare(self):
+        '''
+         Method that will give read access to webdavShare var
+
+         :returns: It will returns config defined remote path
+         :rtype: string
+        '''
+
         if hasattr(self, '_core__webdavShare'):
             return(self.__webdavShare)
         else:
             return(False)
 
     def set_webdavShare(self, path):
+        '''
+         Method that will give write access to webdavShare var
+
+         :param path: Webdav share path to set for the runnning class instance
+         :type  path: string
+
+         :returns: None
+         :rtype: None
+        '''
+
         self.__webdavShare = path
+
     webdavShare = property(
         get_webdavShare,
         set_webdavShare,
