@@ -7,10 +7,10 @@ import signal
 import argparse
 from sys import argv
 try:
-  from PyDav import tools
-except:
-  print('Please Install PyDav library.')
-  exit(1)
+    from PyDav import tools
+except BaseException:
+    print('Please Install PyDav library.')
+    exit(1)
 
 __author__ = "Alain Maibach"
 __status__ = "Tests purpose only"
@@ -40,177 +40,184 @@ python3 = version_info.major == 3
 curScriptDir = fpath.dirname(fpath.abspath(__file__))
 curScriptName = fpath.splitext(fpath.basename(__file__))[0]
 
+
 def sigint_handler(signum, frame):
-  '''
-  Class sig handler for ctrl+c interrupt
-  '''
+    '''
+    Class sig handler for ctrl+c interrupt
+    '''
 
-  print('\nINFO: Execution interrupted by pressing [CTRL+C]')
-  exit(0)
-
-def argCommandline(argv):
-  """
-  Manage cli script args
-  """
-  parser = argparse.ArgumentParser(description='Webdav client')
-  parser.add_argument(
-      "-c",
-      "--config",
-      action="store",
-      dest="configpath",
-      type=str,
-      default=False,
-      help=u"PyDav config file path",
-      metavar='path/to/config.ini',
-      required=False)
-
-  args = parser.parse_args()
-  if len(argv) <= 1:
-    pass
-
-  result = vars(args)
-  return(result)
-
-if __name__ == "__main__":
-  # get cli args
-  args = argCommandline(argv)
-
-  if not args['configpath']:
-    configpath = "{}/config.ini".format(curScriptDir)
-  else:
-    configpath = args['configpath']
-
-  # calling signal handler
-  signal.signal(signal.SIGINT, sigint_handler)
-
-  # connecting to webdav
-  webdavClient = tools.core(configpath)
-  connected = webdavClient.connect()
-  if connected['code'] != 0:
-    del(webdavClient)
+    print('\nINFO: Execution interrupted by pressing [CTRL+C]')
     exit(0)
 
-  # print local files destination
-  print( webdavClient.localPath )
-  
-  # print remote files destination
-  print( webdavClient.webdavShare )
-  
-  # change local files destination
-  #webdavClient.localPath = "toto"
 
-  # close connection
-  #del(webdavClient)
-  #exit(0)
+def argCommandline(argv):
+    """
+    Manage cli script args
+    """
+    parser = argparse.ArgumentParser(description='Webdav client')
+    parser.add_argument(
+        "-c",
+        "--config",
+        action="store",
+        dest="configpath",
+        type=str,
+        default=False,
+        help=u"PyDav config file path",
+        metavar='path/to/config.ini',
+        required=False)
 
-  ############################
-  # list target path content #
-  ############################
-  remotefiles = webdavClient.remote_list()
-  if remotefiles['code'] != 0:
-    del(webdavClient)
-    exit(remotefiles['code'])
-  else:
-    remotefiles = remotefiles['content']
-  print(remotefiles)
+    args = parser.parse_args()
+    if len(argv) <= 1:
+        pass
 
-  ###################################################################
-  # List a different target than default path defined in config.ini #
-  ###################################################################
-  #webdavClient.webdavShare = '{}/Medias'.format(webdavClient.webdavShare)
-  #remotefiles = webdavClient.remote_list()
-  #if remotefiles['code'] != 0:
-  #  del(webdavClient)
-  #  exit(remotefiles['code'])
-  #else:
-  #  remotefiles = remotefiles['content']
-  #print(remotefiles)
+    result = vars(args)
+    return(result)
 
-  #if len(remotefiles) > 0:
-    #####################################
-    ## we will look for a matching expr #
-    #####################################
-    #word = 'Vrac'
-    #res_found =  webdavClient.remote_search(word)
-    #err = False
-  #  #if res_found['code'] == 0 :
-  #  #  for rfilename in res_found['content']:
-  #  #    fileloc = "{0}/{1}".format(webdavClient.localPath, rfilename)
-  #  #    ########################
-  #  #    ## Downloading a file ##
-  #  #    ########################
-  #  #    res = webdavClient.download(rfilename, fileloc)
-  #  #    if res['code'] == 1:
-  #  #      err = True
-  #  #  if err:
-  #  #    print("WARN: Some errors occured during download see logs for more informations.")
-  #else:
-  #  pydav.sendlog(msg="No remote files or directories found", level='warn')
 
-  ######################
-  ## Uploading a file ##
-  ######################
-  resource = '/home/amaibach/Downloads/mp3/'
-  res = webdavClient.upload(resource)
-  if res['code'] == 1:
-    del(webdavClient)
-    exit(1)
+if __name__ == "__main__":
+    # get cli args
+    args = argCommandline(argv)
 
-  resource = '/home/amaibach/Downloads/class-example.py'
-  res = webdavClient.upload(resource)
-  if res['code'] == 1:
-    del(webdavClient)
-    exit(1)
+    if not args['configpath']:
+        configpath = "{}/config.ini".format(curScriptDir)
+    else:
+        configpath = args['configpath']
 
-  ##################
-  ## Copying file ##
-  ##################
-  file2cp = 'mp3'
-  dst = 'toto-1/zigzag/zizi/mp3'
-  rescp = webdavClient.remote_duplicate(file2cp, dst)
-  if rescp['code'] != 0:
-    del(webdavClient)
-    exit(1)
+    # calling signal handler
+    signal.signal(signal.SIGINT, sigint_handler)
 
-  ###################
-  ##  Moving  file ##
-  ###################
-  file2mv = 'toto-1/zigzag/zizi/mp3'
-  dst = 'toto-2/zigzag/mp3'
-  resmv = webdavClient.remote_move(file2mv, dst)
-  if resmv['code'] != 0:
-    del(webdavClient)
-    exit(1)
+    # connecting to webdav
+    webdavClient = tools.core(configpath)
+    connected = webdavClient.connect()
+    if connected['code'] != 0:
+        del(webdavClient)
+        exit(0)
 
-  ########################
-  ## Downloading a file ##
-  ########################
-  file2dl = 'toto-2/zigzag/mp3'
-  remotefile = "{}/{}".format(webdavClient.webdavShare, file2dl)
-  localfile = "{0}/{1}".format(webdavClient.localPath, remotefile)
-  if webdavClient.download(remotefile, localfile)['code'] == 1:
-    del(webdavClient)
-    exit(1)
+    # print local files destination
+    print(webdavClient.localPath)
 
-  ###################
-  ## Removing file ##
-  ###################
+    # print remote files destination
+    print(webdavClient.webdavShare)
 
-  err = False
-  file2del = ['toto-1/', 'toto-2/', 'mp3','class-example.py']
+    # change local files destination
+    # webdavClient.localPath = "toto"
 
-  for f in file2del:
-    resdel = webdavClient.remote_remove(f)
-    if resdel['code'] != 0:
-      err = True
+    # close connection
+    # del(webdavClient)
+    # exit(0)
 
-  if not err:
+    # ############################
+    # # list target path content #
+    # ############################
     remotefiles = webdavClient.remote_list()
     if remotefiles['code'] != 0:
+        del(webdavClient)
+        exit(remotefiles['code'])
+    else:
+        remotefiles = remotefiles['content']
+    print(remotefiles)
+
+    '''
+    ###################################################################
+    # List a different target than default path defined in config.ini #
+    ###################################################################
+    webdavClient.webdavShare = '{}/Medias'.format(webdavClient.webdavShare)
+    remotefiles = webdavClient.remote_list()
+     if remotefiles['code'] != 0:
       del(webdavClient)
       exit(remotefiles['code'])
-    else:
+     else:
       remotefiles = remotefiles['content']
-    print(remotefiles)
-  else:
-    print("WARN: Some errors occured during remove see logs for more informations.")
+     print(remotefiles)
+    '''
+
+    if len(remotefiles) > 0:
+        '''
+         We will look for a matching expr
+        '''
+        word = 'Vrac'
+        res_found = webdavClient.remote_search(word)
+        err = False
+        if res_found['code'] == 0:
+            for rfilename in res_found['content']:
+                fileloc = "{0}/{1}".format(webdavClient.localPath,
+                                           rfilename)
+                ######################
+                # Downloading a file #
+                ######################
+                res = webdavClient.download(rfilename, fileloc)
+                if res['code'] == 1:
+                    err = True
+            if err:
+                print(
+                    "Some errors occured during download.")
+    else:
+        print("No remote files or directories found")
+
+    #####################
+    # Uploading a file ##
+    #####################
+    resources = [
+                 '/home/amaibach/Downloads/mp3/',
+                 '/home/amaibach/Downloads/class-example.py',
+                 '/home/amaibach/Downloads/mp3/'
+                ]
+    for resource in resources:
+      res = webdavClient.upload(resource)
+      if res['code'] == 1:
+          del(webdavClient)
+          exit(1)
+
+    ################
+    # Copying file #
+    ################
+    file2cp = 'mp3'
+    dst = 'toto-1/zigzag/zizi/mp3'
+    rescp = webdavClient.remote_duplicate(file2cp, dst)
+    if rescp['code'] != 0:
+        del(webdavClient)
+        exit(1)
+
+    #################
+    #  Moving  file #
+    #################
+    file2mv = 'toto-1/zigzag/zizi/mp3'
+    dst = 'toto-2/zigzag/mp3'
+    resmv = webdavClient.remote_move(file2mv, dst)
+    if resmv['code'] != 0:
+        del(webdavClient)
+        exit(1)
+
+    ######################
+    # Downloading a file #
+    ######################
+    file2dl = 'toto-2/zigzag/mp3'
+    remotefile = "{}/{}".format(webdavClient.webdavShare, file2dl)
+    localfile = "{0}/{1}".format(webdavClient.localPath, remotefile)
+    if webdavClient.download(remotefile, localfile)['code'] == 1:
+        del(webdavClient)
+        exit(1)
+
+    #################
+    # Removing file #
+    #################
+
+    err = False
+    file2del = ['toto-1/', 'toto-2/', 'mp3', 'class-example.py']
+
+    for f in file2del:
+        resdel = webdavClient.remote_remove(f)
+        if resdel['code'] != 0:
+            err = True
+
+    if not err:
+        remotefiles = webdavClient.remote_list()
+        if remotefiles['code'] != 0:
+            del(webdavClient)
+            exit(remotefiles['code'])
+        else:
+            remotefiles = remotefiles['content']
+        print(remotefiles)
+    else:
+        print("WARN: Some errors occured during remove.")
+        exit(1)
