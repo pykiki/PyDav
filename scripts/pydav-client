@@ -7,7 +7,7 @@ import signal
 import argparse
 from sys import argv
 try:
-  from PyDav import tools
+  from PyDav import tools as pydav
 except:
   print('Please Install PyDav library.')
   exit(1)
@@ -36,9 +36,6 @@ __status__ = "Building"
 '''
 
 python3 = version_info.major == 3
-
-curScriptDir = fpath.dirname(fpath.abspath(__file__))
-#parentScriptDir = fpath.dirname(fpath.dirname(fpath.abspath(__file__)))
 curScriptName = fpath.splitext(fpath.basename(__file__))[0]
 
 def sigint_handler(signum, frame):
@@ -53,7 +50,9 @@ def argCommandline(argv):
   """
   Manage cli script args
   """
-  parser = argparse.ArgumentParser(description='Webdav client')
+
+  usage = "{} -c [/path/to/config.ini] (-l|-s|-u|-d|-i|-m|-r)|(--list|--search|--upload|--download|--duplicate|--move|--delete)".format(argv[0])
+  parser = argparse.ArgumentParser(description='Webdav client', usage=usage)
   parser.add_argument(
       "-c",
       "--config",
@@ -63,160 +62,277 @@ def argCommandline(argv):
       default=False,
       help=u"PyDav config file path",
       metavar='path/to/config.ini',
-      required=False)
+      required=True
+  )
+
+  parser.add_argument(
+      "-l",
+      "--list",
+      action="store",
+      dest="list",
+      type=str,
+      nargs='?',
+      default=False,
+      help=u"Allow to list Webdav share content", 
+      metavar='(optional value to specify Webdav path in share directory)',
+      required=False
+  )
+
+  parser.add_argument(
+      "-s",
+      "--search",
+      action="store",
+      dest="search",
+      type=str,
+      default=False,
+      help=u"Allow to search for a resource containing a word",
+      metavar='word',
+      required=False
+  )
+
+  parser.add_argument(
+      "-u",
+      "--upload",
+      action="store",
+      dest="upload",
+      type=str,
+      default=False,
+      help=u"Upload a resource to your Webdav share directory",
+      metavar='/path/to/local/resource',
+      required=False
+  )
+
+  parser.add_argument(
+      "-d",
+      "--download",
+      action="store",
+      dest="download",
+      type=str,
+      default=False,
+      help=u"Download a resource from your Webdav share directory",
+      metavar='Webdav/share/resource',
+      required=False
+  )
+
+  parser.add_argument(
+      "-i",
+      "--duplicate",
+      action="store",
+      dest="duplicate",
+      type=str,
+      nargs='*',
+      default=False,
+      help=u"Duplicate a Webdav resource",
+      metavar='webdav/share/src webdav/share/dst',
+      required=False
+  )
+
+  parser.add_argument(
+      "-m",
+      "--move",
+      action="store",
+      dest="move",
+      type=str,
+      nargs='*',
+      default=False,
+      help=u"Move a Webdav resource",
+      metavar='webdav/share/src webdav/share/dst',
+      required=False
+  )
+
+  parser.add_argument(
+      "-r",
+      "--delete",
+      action="store",
+      dest="remove",
+      type=str,
+      default=False,
+      help=u"Remove a Webdav resource",
+      metavar='webdav/share/resource',
+      required=False
+  )
 
   args = parser.parse_args()
+  nbargs = len(argv)
   # print help if no arguments given
-  if len(argv) <= 1:
-    pass
-    #parser.print_help()
-    #exit(1)
+  if nbargs <= 1:
+    parser.print_help()
+    exit(1)
 
   result = vars(args)
 
   return(result)
 
-if __name__ == "__main__":
-
-  # get cli args
-  args = argCommandline(argv)
-
-  if not args['configpath']:
-    configpath = "{}/config.ini".format(curScriptDir)
+def list_content(webdavClient, path):
+  if not path:
+    remotefiles = webdavClient.remote_list()
+    if remotefiles['code'] == 0:
+      print(remotefiles['content'])
   else:
-    configpath = args['configpath']
-
-  # calling signal handler
-  signal.signal(signal.SIGINT, sigint_handler)
-
-  # connecting to webdav
-  webdavClient = tools.core(configpath)
-  connected = webdavClient.connect()
-  if connected['code'] != 0:
-    del(webdavClient)
-    exit(0)
-
-  # print local files destination
-  print( webdavClient.localPath )
-  
-  # print remote files destination
-  print( webdavClient.webdavShare )
-  
-  # change local files destination
-  #webdavClient.localPath = "toto"
-
-  # close connection
-  #del(webdavClient)
-  #exit(0)
-
-  ############################
-  # list target path content #
-  ############################
-  remotefiles = webdavClient.remote_list()
-  if remotefiles['code'] != 0:
-    del(webdavClient)
-    exit(remotefiles['code'])
-  else:
-    remotefiles = remotefiles['content']
-  print(remotefiles)
-
-  ###################################################################
-  # List a different target than default path defined in config.ini #
-  ###################################################################
-  #webdavClient.webdavShare = '{}/Medias'.format(webdavClient.webdavShare)
-  #remotefiles = webdavClient.remote_list()
-  #if remotefiles['code'] != 0:
-  #  del(webdavClient)
-  #  exit(remotefiles['code'])
-  #else:
-  #  remotefiles = remotefiles['content']
-  #print(remotefiles)
-
-  #if len(remotefiles) > 0:
-    #####################################
-    ## we will look for a matching expr #
-    #####################################
-    #word = 'Vrac'
-    #res_found =  webdavClient.remote_search(word)
-    #err = False
-  #  #if res_found['code'] == 0 :
-  #  #  for rfilename in res_found['content']:
-  #  #    fileloc = "{0}/{1}".format(webdavClient.localPath, rfilename)
-  #  #    ########################
-  #  #    ## Downloading a file ##
-  #  #    ########################
-  #  #    res = webdavClient.download(rfilename, fileloc)
-  #  #    if res['code'] == 1:
-  #  #      err = True
-  #  #  if err:
-  #  #    print("WARN: Some errors occured during download see logs for more informations.")
-  #else:
-  #  pydav.sendlog(msg="No remote files or directories found", level='warn')
-
-  ######################
-  ## Uploading a file ##
-  ######################
-  resource = '/home/amaibach/Downloads/mp3/'
-  res = webdavClient.upload(resource)
-  if res['code'] == 1:
-    del(webdavClient)
-    exit(1)
-
-  resource = '/home/amaibach/Downloads/class-example.py'
-  res = webdavClient.upload(resource)
-  if res['code'] == 1:
-    del(webdavClient)
-    exit(1)
-
-  ##################
-  ## Copying file ##
-  ##################
-  file2cp = 'mp3'
-  dst = 'toto-1/zigzag/zizi/mp3'
-  rescp = webdavClient.remote_duplicate(file2cp, dst)
-  if rescp['code'] != 0:
-    del(webdavClient)
-    exit(1)
-
-  ###################
-  ##  Moving  file ##
-  ###################
-  file2mv = 'toto-1/zigzag/zizi/mp3'
-  dst = 'toto-2/zigzag/mp3'
-  resmv = webdavClient.remote_move(file2mv, dst)
-  if resmv['code'] != 0:
-    del(webdavClient)
-    exit(1)
-
-  ########################
-  ## Downloading a file ##
-  ########################
-  file2dl = 'toto-2/zigzag/mp3'
-  remotefile = "{}/{}".format(webdavClient.webdavShare, file2dl)
-  localfile = "{0}/{1}".format(webdavClient.localPath, remotefile)
-  if webdavClient.download(remotefile, localfile)['code'] == 1:
-    del(webdavClient)
-    exit(1)
-
-  ###################
-  ## Removing file ##
-  ###################
-
-  err = False
-  file2del = ['toto-1/', 'toto-2/', 'mp3','class-example.py']
-
-  for f in file2del:
-    resdel = webdavClient.remote_remove(f)
-    if resdel['code'] != 0:
-      err = True
-
-  if not err:
+    originalshare = webdavClient.webdavShare
+    webdavClient.webdavShare = '{}/{}'.format(webdavClient.webdavShare, path)
     remotefiles = webdavClient.remote_list()
     if remotefiles['code'] != 0:
       del(webdavClient)
       exit(remotefiles['code'])
     else:
-      remotefiles = remotefiles['content']
-    print(remotefiles)
+      print(remotefiles['content'])
+
+    if len(remotefiles['content']) > 0:
+      pass
+    else:
+      pydav.sendlog(msg="No remote files or directories found", level='warn')
+
+    webdavClient.webdavShare = originalshare
+
+  return(remotefiles)
+
+def search_files(webdavClient, word):
+  res_found =  webdavClient.remote_search(word)
+  err = False
+  if res_found['code'] == 0 :
+    for rfilename in res_found['content']:
+      fileloc = "{0}/{1}".format(webdavClient.localPath, rfilename)
+      #res = webdavClient.download(rfilename, fileloc)
+    res_found['content'] = "le resultat attendu ..."
+
+  return(res_found)
+
+def upload(webdavClient, resource):
+  res = webdavClient.upload(resource)
+  return(res)
+
+def download(webdavClient, resource):
+  remotefile = "{}/{}".format(webdavClient.webdavShare, resource)
+  localfile = "{0}/{1}".format(webdavClient.localPath, remotefile)
+  res = webdavClient.download(remotefile, localfile)
+
+  return(res)
+
+def duplicate(webdavClient, src, dst):
+  rescp = webdavClient.remote_duplicate(src, dst)
+  return(rescp)
+
+def move(webdavClient, src, dst):
+  resmv = webdavClient.remote_move(src, dst)
+  return(resmv)
+
+def delete(webdavClient, resource):
+  resdel = webdavClient.remote_remove(resource)
+  print(resdel['content'])
+
+  return(resdel)
+
+
+if __name__ == "__main__":
+  '''
+  '''
+
+  # calling signal handler
+  signal.signal(signal.SIGINT, sigint_handler)
+
+  # get cli args
+  args = argCommandline(argv)
+
+  configpath = str(args['configpath'])
+
+  if args['list']:
+    if args['list'] is None:
+      path2list = False
+    else:
+      path2list = str(args['list'][0])
+
+  if args['search']:
+    word = str(args['search'])
+
+  if args['upload']:
+    localfile = str(args['upload'])
+
+  if args['download']:
+    localdst = str(args['download'])
+  
+  if args['duplicate']:
+    if len(args['duplicate']) < 2:
+      print(
+        "You tried to duplicate a file but you missed arguments. See {} -h.".format(
+        curScriptName)
+      )
+      exit(1)
+    else:
+      source = str(args['duplicate'][0])
+      dest = str(args['duplicate'][1])
+
+  if args['move']:
+    if len(args['move']) < 2:
+      print(
+        "You tried to move a file but you missed arguments.")
+      print("See {} -h.".format(curScriptName))
+      exit(1)
+    else:
+      source = str(args['move'][0])
+      dest = str(args['move'][1])
+
+  if args['remove']:
+    remotefile = str(args['remove'])
+
+  del args['configpath']
+  count = 0
+  maxSimulOpt = 1
+  if python3:
+    for k, v in args.items():
+      if v:
+        count = count + 1
   else:
-    print("WARN: Some errors occured during remove see logs for more informations.")
+    for k, v in args.iteritems():
+      if v:
+        count = count + 1
+
+  if count > maxSimulOpt:
+    print(
+      "Please use only one action at a time. See {} -h.".format(
+      curScriptName)
+    )
+    exit(1)
+  if count == 0:
+    print(
+      "You didn't invoked an action. See {} -h.".format(
+      curScriptName)
+    )
+    exit(1)
+
+
+  # connecting to Webdav
+  client = pydav.core(configpath)
+  connected = client.connect()
+  if connected['code'] != 0:
+    del(client)
+    exit(1)
+
+  if args['list']:
+    result = list_content(webdavClient=client, path=path2list)
+
+  if args['search']:
+    result = search_files(webdavClient=client, word=word)
+
+  if args['upload']:
+    result = upload(webdavClient=client, resource=localfile)
+
+  if args['download']:
+    result = download(webdavClient=client, resource=localdst)
+
+  if args['duplicate']:
+    result = duplicate(webdavClient=client, src=source, dst=dest)
+
+  if args['move']:
+    result = move(webdavClient=client, src=source, dst=dest)
+
+  if args['remove']:
+    result = delete(webdavClient=client, resource=remotefile)
+
+  if result['code'] != 0:
+    del(client)
+    exit(1)
+
+  # closing connection
+  del(client)
+  exit(0)
