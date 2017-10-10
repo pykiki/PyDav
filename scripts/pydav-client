@@ -13,7 +13,7 @@ except:
   exit(1)
 
 __author__ = "Alain Maibach"
-__status__ = "Building"
+__status__ = "Released"
 
 '''
     Python3 PyDav client script 
@@ -84,9 +84,10 @@ def argCommandline(argv):
       action="store",
       dest="search",
       type=str,
+      nargs='*',
       default=False,
       help=u"Allow to search for a resource containing a word",
-      metavar='word',
+      metavar='[word] (Webdav/share/searching/path/dir)',
       required=False
   )
 
@@ -96,9 +97,10 @@ def argCommandline(argv):
       action="store",
       dest="upload",
       type=str,
+      nargs='*',
       default=False,
       help=u"Upload a resource to your Webdav share directory",
-      metavar='/path/to/local/resource',
+      metavar='[/path/to/local/resource] (Webdav/share/path/dir)',
       required=False
   )
 
@@ -108,9 +110,10 @@ def argCommandline(argv):
       action="store",
       dest="download",
       type=str,
+      nargs='*',
       default=False,
       help=u"Download a resource from your Webdav share directory",
-      metavar='Webdav/share/resource',
+      metavar='[Webdav/share/resource] (path/to/localdest)',
       required=False
   )
 
@@ -123,7 +126,7 @@ def argCommandline(argv):
       nargs='*',
       default=False,
       help=u"Duplicate a Webdav resource",
-      metavar='webdav/share/src webdav/share/dst',
+      metavar='[webdav/share/src] [webdav/share/dst]',
       required=False
   )
 
@@ -136,7 +139,7 @@ def argCommandline(argv):
       nargs='*',
       default=False,
       help=u"Move a Webdav resource",
-      metavar='webdav/share/src webdav/share/dst',
+      metavar='[webdav/share/src] [webdav/share/dst]',
       required=False
   )
 
@@ -163,49 +166,61 @@ def argCommandline(argv):
 
   return(result)
 
-def list_content(webdavClient, path):
-  if not path:
-    remotefiles = webdavClient.remote_list()
-    if remotefiles['code'] == 0:
-      print(remotefiles['content'])
-  else:
+def list_content(webdavClient, path=False):
+  if path:
     originalshare = webdavClient.webdavShare
     webdavClient.webdavShare = '{}/{}'.format(webdavClient.webdavShare, path)
-    remotefiles = webdavClient.remote_list()
-    if remotefiles['code'] != 0:
-      del(webdavClient)
-      exit(remotefiles['code'])
-    else:
-      print(remotefiles['content'])
 
+  remotefiles = webdavClient.remote_list()
+
+  if remotefiles['code'] == 0:
     if len(remotefiles['content']) > 0:
-      pass
-    else:
-      pydav.sendlog(msg="No remote files or directories found", level='warn')
+      for i in remotefiles['content']:
+        print(i)
 
+  if path:
     webdavClient.webdavShare = originalshare
 
   return(remotefiles)
 
-def search_files(webdavClient, word):
-  res_found =  webdavClient.remote_search(word)
+def search_files(webdavClient, word, path=False):
+  if path:
+    path = '{}/{}'.format(webdavClient.webdavShare, path)
+    path = fpath.normpath(path)
+
+  res_found =  webdavClient.remote_search(word, path)
   err = False
   if res_found['code'] == 0 :
     for rfilename in res_found['content']:
       fileloc = "{0}/{1}".format(webdavClient.localPath, rfilename)
-      #res = webdavClient.download(rfilename, fileloc)
-    res_found['content'] = "le resultat attendu ..."
+      print( "{};{}".format(rfilename, fileloc) )
 
   return(res_found)
 
-def upload(webdavClient, resource):
+def upload(webdavClient, resource, path=False):
+  if path:
+    originalshare = webdavClient.webdavShare
+    newshare = "{}/{}".format(webdavClient.webdavShare, path)
+    webdavClient.webdavShare = fpath.normpath(newshare)
+
   res = webdavClient.upload(resource)
+
+  if path:
+    webdavClient.webdavShare = originalshare
+
   return(res)
 
-def download(webdavClient, resource):
+def download(webdavClient, resource, path=False):
+  if path:
+    originaldst = webdavClient.localPath
+    webdavClient.localPath = path
+
   remotefile = "{}/{}".format(webdavClient.webdavShare, resource)
-  localfile = "{0}/{1}".format(webdavClient.localPath, remotefile)
-  res = webdavClient.download(remotefile, localfile)
+  localrsc = "{}/{}".format(webdavClient.localPath, remotefile)
+  res = webdavClient.download(remotefile, localrsc)
+
+  if path:
+    webdavClient.localPath = originaldst
 
   return(res)
 
@@ -219,7 +234,7 @@ def move(webdavClient, src, dst):
 
 def delete(webdavClient, resource):
   resdel = webdavClient.remote_remove(resource)
-  print(resdel['content'])
+  #print(resdel['content'])
 
   return(resdel)
 
@@ -234,22 +249,35 @@ if __name__ == "__main__":
   # get cli args
   args = argCommandline(argv)
 
-  configpath = str(args['configpath'])
+  configpath = fpath.expanduser(str(args['configpath']))
+  configpath = fpath.abspath( fpath.realpath(configpath) )
 
-  if args['list']:
+  if args['list'] or args['list'] is None:
     if args['list'] is None:
       path2list = False
     else:
-      path2list = str(args['list'][0])
+      path2list = str(args['list'])
 
   if args['search']:
-    word = str(args['search'])
+    word = str(args['search'][0])
+    if len(args['search']) > 1 :
+      newshare = fpath.expanduser(str(args['search'][1]))
+    else:
+      newshare = False
 
   if args['upload']:
-    localfile = str(args['upload'])
+    localrsc = str(args['upload'][0])
+    if len(args['upload']) > 1 :
+      newpath = fpath.expanduser(str(args['upload'][1]))
+    else:
+      newpath = False
 
   if args['download']:
-    localdst = str(args['download'])
+    localdst = str(args['download'][0])
+    if len(args['download']) > 1 :
+      newdst = fpath.expanduser(str(args['download'][1]))
+    else:
+      newdst = False
   
   if args['duplicate']:
     if len(args['duplicate']) < 2:
@@ -282,9 +310,13 @@ if __name__ == "__main__":
     for k, v in args.items():
       if v:
         count = count + 1
+      elif v is None:
+        count = count + 1
   else:
     for k, v in args.iteritems():
       if v:
+        count = count + 1
+      elif v is None:
         count = count + 1
 
   if count > maxSimulOpt:
@@ -308,17 +340,17 @@ if __name__ == "__main__":
     del(client)
     exit(1)
 
-  if args['list']:
+  if args['list'] or args['list'] is None:
     result = list_content(webdavClient=client, path=path2list)
 
   if args['search']:
-    result = search_files(webdavClient=client, word=word)
+    result = search_files(webdavClient=client, word=word, path=newshare)
 
   if args['upload']:
-    result = upload(webdavClient=client, resource=localfile)
+    result = upload(webdavClient=client, resource=localrsc, path=newpath)
 
   if args['download']:
-    result = download(webdavClient=client, resource=localdst)
+    result = download(webdavClient=client, resource=localdst, path=newdst)
 
   if args['duplicate']:
     result = duplicate(webdavClient=client, src=source, dst=dest)

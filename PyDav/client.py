@@ -105,7 +105,8 @@ class core():
 
         if logtype not in ['console', 'file', 'syslog']:
             self.sendlog(
-                msg="Log destination {} incorrect, logging to console".format(logtype),
+                msg="Log destination {} incorrect, logging to console".format(
+                    logtype),
                 dst='console',
                 level='warn')
             self.__logtype = 'console'
@@ -668,15 +669,6 @@ class core():
             self.__error = {'code': 1, 'reason': errstr}
             return(self.__error)
 
-        infostr = 'Uploading {} to {}'.format(local, remote)
-        if self.__logtype == 'file':
-            self.sendlog(
-                logfpath=self.__logfile,
-                dst=self.__logtype,
-                msg=infostr)
-        else:
-            self.sendlog(dst=self.__logtype, msg=infostr)
-
         local_isdir = fpath.isdir(local)
 
         rfilename = fpath.basename(fpath.normpath(local))
@@ -689,6 +681,15 @@ class core():
                 rfiledst = str(remote)
 
         rfiledst = fpath.normpath(rfiledst)
+
+        infostr = 'Uploading {} to {}'.format(local, rfiledst)
+        if self.__logtype == 'file':
+            self.sendlog(
+                logfpath=self.__logfile,
+                dst=self.__logtype,
+                msg=infostr)
+        else:
+            self.sendlog(dst=self.__logtype, msg=infostr)
 
         if not self.__client.check(rfiledst):
             if local_isdir:
@@ -737,7 +738,7 @@ class core():
                     if re.match(
                         'Remote parent for.* not found',
                             str(exception)):
-                        parentdir = fpath.dirname(fpath.abspath(rfiledst))
+                        parentdir = fpath.dirname(rfiledst)
                         res = self.createdir(parentdir)
                         if res['code'] == 1:
                             errmsg = "Unable to create remote parent directory {}.".format(
@@ -1186,35 +1187,49 @@ class core():
         if self.__error['code'] == 1:
             return(self.__error)
 
+        target = fpath.normpath(target)
+
         msg = "Removing {}.".format(target)
         if self.__logtype == 'file':
             self.sendlog(logfpath=self.__logfile, dst=self.__logtype, msg=msg)
         else:
             self.sendlog(dst=self.__logtype, msg=msg)
 
-        try:
-            self.__client.clean(target)
-        except BaseException:
-            errmsg = "Unable to remove remote resource {}.".format(target)
+        if not self.__client.check(target):
+            errmsg = "Remote resource {0} not found.".format(target)
             if self.__logtype == 'file':
                 self.sendlog(
                     logfpath=self.__logfile,
                     dst=self.__logtype,
-                    level='error',
+                    level="warn",
                     msg=errmsg)
             else:
-                self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+                self.sendlog(dst=self.__logtype, msg=errmsg, level="warn")
             self.__error = {'code': 1, 'reason': errmsg}
         else:
-            msg = "Remote resource {} has been removed.".format(target)
-            if self.__logtype == 'file':
-                self.sendlog(
-                    logfpath=self.__logfile,
-                    dst=self.__logtype,
-                    msg=msg)
+            try:
+                self.__client.clean(target)
+            except BaseException:
+                errmsg = "Unable to remove remote resource {}.".format(target)
+                if self.__logtype == 'file':
+                    self.sendlog(
+                        logfpath=self.__logfile,
+                        dst=self.__logtype,
+                        level='error',
+                        msg=errmsg)
+                else:
+                    self.sendlog(msg=errmsg, dst=self.__logtype, level='error')
+                self.__error = {'code': 1, 'reason': errmsg}
             else:
-                self.sendlog(msg=msg, dst=self.__logtype)
-            self.__error = {'code': 0, 'reason': msg}
+                msg = "Remote resource {} has been removed.".format(target)
+                if self.__logtype == 'file':
+                    self.sendlog(
+                        logfpath=self.__logfile,
+                        dst=self.__logtype,
+                        msg=msg)
+                else:
+                    self.sendlog(msg=msg, dst=self.__logtype)
+                self.__error = {'code': 0, 'reason': msg}
 
         return(self.__error)
 
@@ -1234,6 +1249,8 @@ class core():
 
         if self.__error['code'] == 1:
             return(self.__error)
+
+        target = fpath.normpath(target)
 
         if not self.__client.check(target):
             errmsg = "Remote resource {0} not found.".format(target)
@@ -1342,6 +1359,8 @@ class core():
 
         if self.__error['code'] == 1:
             return(self.__error)
+
+        target = fpath.normpath(target)
 
         if not self.__client.check(target):
             errmsg = "Remote resource {0} not found.".format(target)
@@ -1462,6 +1481,15 @@ class core():
             currdir = str(path)
         else:
             currdir = "/"
+
+        info = "Listing directory {}".format(currdir)
+        if self.__logtype == 'file':
+            self.sendlog(
+                logfpath=self.__logfile,
+                dst=self.__logtype,
+                msg=info)
+        else:
+            self.sendlog(dst=self.__logtype, msg=info)
 
         remotefiles = self.list(currdir)
         if 'code' in remotefiles:

@@ -67,7 +67,7 @@ class core():
             else:
                 part1 = 'INFO: Default configuration done!'
                 part2 = 'Please edit {} before going further.'.format(
-                  self.__config)
+                    self.__config)
                 print('{} {}'.format(part1, part2))
                 exit(1)
 
@@ -307,7 +307,7 @@ class core():
 
         return(result)
 
-    def remote_search(self, matchword):
+    def remote_search(self, matchword, path=False):
         '''
          Search for files recursively on configuration file defined Webdav share path
 
@@ -320,7 +320,16 @@ class core():
          :returns: list of file paths which contains matchword
          :rtype: list
         '''
-        res_found = self.__webdavClient.search(matchword)
+
+        if path:
+          self.__webdavClient.sendlog(
+          msg="Looking for {} under path '{}' in progress. Please wait...".format(matchword, path))
+          res_found = self.__webdavClient.search(target=matchword, path=path)
+        else:
+          self.__webdavClient.sendlog(
+              msg="Looking for {} under path '{}' in progress. Please wait...".format(matchword, self.__webdavShare))
+          res_found = self.__webdavClient.search(matchword)
+
         if 'code' in res_found:
             self.__webdavClient.sendlog(msg=res_found['reason'], level='warn')
             result = {
@@ -432,7 +441,7 @@ class core():
          :rtype: dict
         '''
 
-        res2rm = "{0}/{1}".format(self.__webdavShare, resource)
+        res2rm = "{}/{}".format(self.__webdavShare, resource)
         resrm = self.__webdavClient.delete(res2rm)
         if resrm['code'] != 0:
             self.__webdavClient.sendlog(msg=resrm['reason'], level='warn')

@@ -1,5 +1,3 @@
-# Finir le scripts/pydav-client
-  Do functions, and tests them
-
-# A valider aussi sous arm ...
-# voir pour parralélliser ?
+# check it under raspberry pi
+# Do a spike to try to improve speed for upload and download
+  multitask / callback etc..

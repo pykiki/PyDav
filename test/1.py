@@ -157,16 +157,14 @@ if __name__ == "__main__":
     #####################
     # Uploading a file ##
     #####################
-    resources = [
-                 '/home/amaibach/Downloads/mp3/',
+    resources = ['/home/amaibach/Downloads/mp3/',
                  '/home/amaibach/Downloads/class-example.py',
-                 '/home/amaibach/Downloads/mp3/'
-                ]
+                 '/home/amaibach/Downloads/mp3/']
     for resource in resources:
-      res = webdavClient.upload(resource)
-      if res['code'] == 1:
-          del(webdavClient)
-          exit(1)
+        res = webdavClient.upload(resource)
+        if res['code'] == 1:
+            del(webdavClient)
+            exit(1)
 
     ################
     # Copying file #
