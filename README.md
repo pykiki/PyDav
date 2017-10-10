@@ -7,18 +7,23 @@ Based on webdavclient library:*https://github.com/CloudPolis/webdav-client-pytho
 
 System Requirement
 ------------------
+<p>
+ If you do not use your packager to install python libraries
+</p>
 
- - libcurl4-openssl-dev
- - libxml2-dev
- - libxslt1-dev
+ - libcurl4-openssl devel sources
+ - libxml2 devel sources
+ - libxslt1 devel sources
 
 Python library dependencies
 ------------------------------
 
+<p>
  - argcomplete>=1.9.2
  - lxml>=3.8.0
  - pycurl>=7.43.0
  - webdavclient>=1.0.8
+</p>
 
 Install
 -------
@@ -28,7 +33,62 @@ This will install python libraries and pydav-client script.
 </p>
 
 ```bash
-$ python3 setup.py install
+
+# ArchLinux
+$ sudo pacman -Sy --needed libxslt python-lxml python-pycurl python-argcomplete
+
+# Debian
+$ sudo apt-get update
+$ sudo apt-get install libcurl4-openssl-dev libxml2-dev libxslt1-dev
+
+# Manually build it into specific folder
+#$ /usr/bin/env python3 setup.py build --build-base=/path/to/pybuild/foo-1.0
+
+# Install python package
+$ /usr/bin/env python3 setup.py install --user --record installed-files.txt
+$ export PYTHONPATH="$(echo $HOME/.local/lib/python3.6/site-packages)"
+$ export PATH=${HOME}/.local/bin:${PATH}
+# or
+$ /usr/bin/env python3 setup.py install --home=~ --record installed-files.txt
+$ export PYTHONPATH="$(echo $HOME/.local/lib/python3.6/site-packages)"
+$ export PATH=${HOME}/.local/bin:${PATH}
+# or
+$ /usr/bin/env python3 setup.py install --prefix=/usr/local --record installed-files.txt
+$ export PYTHONPATH="$(echo /usr/local/lib/python3.6/site-packages)"
+$ export PATH=/usr/local/bin:${PATH}
+```
+
+<p>
+If you use a custom install path, do not forget to setup PYTHONPATH and PYTHONHOME
+```bash
+# if you used it with --prefix=/usr/local
+$ export PYTHONPATH="/usr/local/lib/python3.X"
+```
+</p>
+
+:notebook: For more installation options, see: https://docs.python.org/3/install/index.html
+
+<p>
+Your packages will be installed under:
+
+```bash
+echo $(find "$(find "$(/usr/bin/env python3 -c 'import sys; print(sys.prefix)')/lib/" -maxdepth 1 -name 'python3*')/site-packages/" -maxdepth 1 -iname "PyDav*" -type d)
+# or
+echo $(find "$(find "$(/usr/bin/env python3 -c 'import sys; print(sys.exec_prefix)')/lib/" -maxdepth 1 -name 'python3*')/site-packages/" -maxdepth 1 -iname "PyDav*" -type d)
+```
+
+</p>
+
+Uninstall
+---------
+
+```bash
+
+$ cat installed-files.txt | xargs sudo rm -rf
+# or if you do not have installed-files.txt
+$ pip uninstall PyDav --user
+$ pip uninstall webdavclient argcomplete --user
+
 ```
 
 Script Use
@@ -38,7 +98,128 @@ Script Use
 For a Quick&Easy use, call pydav-client from cli.
 </p>
 
-TBD
+<aside class="warning">
+  :notebook: All command launched with this script will impact remote Webdav in the limit of the directory
+  defined as the sharing point in **config.ini** section **[webdav]**, option **'share'**.
+</aside>
+
+### Help
+
+```bash
+pydav-client -h
+
+usage: /home/amaibach/.virtualenvs/pydav/bin/pydav-client -c [/path/to/config.ini] (-l|-s|-u|-d|-i|-m|-r)|(--list|--search|--upload|--download|--duplicate|--move|--delete)
+
+Webdav client
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c path/to/config.ini, --config path/to/config.ini
+                        PyDav config file path
+  -l [(optional value to specify Webdav path in share directory)], --list [(optional value to specify Webdav path in share directory)]
+                        Allow to list Webdav share content
+  -s [[word] (Webdav/share/searching/path/dir) [[word] (Webdav/share/searching/path/dir) ...]], --search [[word] (Webdav/share/searching/path/dir) [[word] (Webdav/share/searching/path/dir) ...]]
+                        Allow to search for a resource containing a word
+  -u [[/path/to/local/resource] (Webdav/share/path/dir) [[/path/to/local/resource] (Webdav/share/path/dir) ...]], --upload [[/path/to/local/resource] (Webdav/share/path/dir) [[/path/to/local/resource] (Webdav/share/path/dir) ...]]
+                        Upload a resource to your Webdav share directory
+  -d [[Webdav/share/resource] (path/to/localdest) [[Webdav/share/resource] (path/to/localdest) ...]], --download [[Webdav/share/resource] (path/to/localdest) [[Webdav/share/resource] (path/to/localdest) ...]]
+                        Download a resource from your Webdav share directory
+  -i [[webdav/share/src] [webdav/share/dst] [[webdav/share/src] [webdav/share/dst] ...]], --duplicate [[webdav/share/src] [webdav/share/dst] [[webdav/share/src] [webdav/share/dst] ...]]
+                        Duplicate a Webdav resource
+  -m [[webdav/share/src] [webdav/share/dst] [[webdav/share/src] [webdav/share/dst] ...]], --move [[webdav/share/src] [webdav/share/dst] [[webdav/share/src] [webdav/share/dst] ...]]
+                        Move a Webdav resource
+  -r webdav/share/resource, --delete webdav/share/resource
+                        Remove a Webdav resource
+
+```
+
+### List resources
+
+<p>
+To list webdav path resources you can use -l or --list option.
+
+If you invoke -l without value behind, you will list recursively all your Webdav
+share path defined in config.ini
+
+If you want to only list a specific path **in** your Webdav share path you can
+add the path (which will be add after your Webdav root share path defined in **config.ini**
+section *[webdav]*, option *'share'*) after the -l/--list option.
+</p>
+
+```bash
+config="~/Downloads/pydav/configs/config-lan.ini"
+cmd="pydav-client -c $config"
+
+$cmd -l
+$cmd --list documents
+```
+
+### Search for resources
+
+<p>
+</p>
+
+```bash
+config="~/Downloads/pydav/configs/config-lan.ini"
+cmd="pydav-client -c $config"
+
+$cmd -s .txt documents
+$cmd --search .txt documents/
+```
+
+### Uploading resources
+
+<p>
+</p>
+
+```bash
+config="~/Downloads/pydav/configs/config-lan.ini"
+cmd="pydav-client -c $config"
+
+$cmd --upload ~/Downloads/photos/
+$cmd -u ~/Downloads/class-example.py scripts/
+```
+
+### Downloading resources
+
+<p>
+</p>
+
+```bash
+config="~/Downloads/pydav/configs/config-lan.ini"
+cmd="pydav-client -c $config"
+
+$cmd -d 'documents/test.mp3'
+$cmd --download Music/ ~/Downloads/music-vrac
+```
+
+### Moving resources
+
+<p>
+</p>
+
+```bash
+config="~/Downloads/pydav/configs/config-lan.ini"
+cmd="pydav-client -c $config"
+
+$cmd -i Music/music-vrac /vrac
+$cmd --move /vrac Music/torem
+```
+
+### Erasing resources
+
+<p>
+</p>
+
+```bash
+config="~/Downloads/pydav/configs/config-lan.ini"
+cmd="pydav-client -c $config"
+
+$cmd -r Music/torem
+$cmd --delete /photos
+$cmd --delete scripts/class-example.py
+$cmd --delete scripts
+```
 
 Python Use
 ----------

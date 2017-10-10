@@ -1,3 +1,9 @@
-# check it under raspberry pi
+# realise pydav-client documentation
+  - update README.md
+  - Add script functions comments
+
+# Add some test into class Test of setup.py
+  # run sudo python3 setup.py test
+
 # Do a spike to try to improve speed for upload and download
   multitask / callback etc..
